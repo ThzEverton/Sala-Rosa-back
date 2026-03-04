@@ -5,10 +5,10 @@ export default class Database {
 
   constructor() {
     this.#pool = mysql.createPool({
-      host: '132.226.245.178',
-      database: 'ATIVIDADE_10442417480',
-      user: '10442417480',
-      password: '10442417480',
+      host: 'localhost',
+      database: 'salarosa',
+      user: 'root',
+      password: '',
       idleTimeout: 30000,
       connectionLimit: 50
     });
