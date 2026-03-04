@@ -9,7 +9,7 @@ export default class Usuario extends Base {
   #perfil;
   #isConsultora;
   #ativo;
-  #senhaHash;
+  #senha;
 
   get id() { return this.#id; }
   set id(v) { this.#id = v; }
@@ -35,8 +35,8 @@ export default class Usuario extends Base {
   get ativo() { return this.#ativo; }
   set ativo(v) { this.#ativo = v; }
 
-  get senhaHash() { return this.#senhaHash; }
-  set senhaHash(v) { this.#senhaHash = v; }
+  get senha() { return this.#senha; }
+  set senha(v) { this.#senha = v; }
 
   constructor(id = null, nome = null, email = null, telefone = null) {
     super();
@@ -48,6 +48,6 @@ export default class Usuario extends Base {
     this.#perfil = "cliente";
     this.#isConsultora = 0;
     this.#ativo = 1;
-    this.#senhaHash = null;
+    this.#senha = null;
   }
 }

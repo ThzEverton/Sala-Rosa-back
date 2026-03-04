@@ -22,16 +22,19 @@ export default class UsersRepository {
 
   async criar(ent) {
     const sql = `
-      insert into users (id, nome, email, telefone, data_nascimento, perfil, is_consultora, ativo, senha_hash)
+      insert into users (id, nome, email, telefone, data_nascimento, perfil, is_consultora, ativo, senha)
       values (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const vals = [
-      ent.id, ent.nome, ent.email, ent.telefone,
+      ent.id,
+      ent.nome,
+      ent.email,
+      ent.telefone,
       ent.dataNascimento,
       ent.perfil,
       ent.isConsultora ? 1 : 0,
       ent.ativo ? 1 : 0,
-      ent.senhaHash
+      ent.senha
     ];
     return await this.#banco.ExecutaComandoNonQuery(sql, vals);
   }
@@ -51,6 +54,28 @@ export default class UsersRepository {
     ];
     return await this.#banco.ExecutaComandoNonQuery(sql, vals);
   }
+  async obterPorEmail(email) {
+    const sql = `select id, nome, email, perfil, is_consultora, ativo, senha
+                 from users
+                 where email = ?
+                 limit 1`;
+    const rows = await this.#banco.ExecutaComando(sql, [email]);
+
+    if (rows.length === 0) return null;
+
+    return this.toMap(rows[0]);
+  }
+
+  async validarAcesso(email, senha) {
+    const sql = `
+      select *
+      from users
+      where email = ? and senha = ?
+      limit 1
+    `;
+    const rows = await this.#banco.ExecutaComando(sql, [email, senha]);
+    return rows.length ? this.toMap(rows[0]) : null;
+  }
 
   async toggleAtivo(id) {
     const sql = `update users set ativo = 1 - ativo where id = ?`;
@@ -65,9 +90,9 @@ export default class UsersRepository {
     u.telefone = row["telefone"];
     u.dataNascimento = row["data_nascimento"];
     u.perfil = row["perfil"];
-    u.isConsultora = row["is_consultora"];
-    u.ativo = row["ativo"];
-    u.senhaHash = row["senha_hash"];
+    u.isConsultora = row["is_consultora"] == 1;
+    u.ativo = row["ativo"] == 1;
+    u.senha = row["senha"];
     return u;
   }
 }
