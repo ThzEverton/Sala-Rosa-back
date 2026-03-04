@@ -17,7 +17,7 @@ import vendasRoutes from "./routes/vendasRoutes.js";
 import estoqueRoutes from "./routes/estoqueRoutes.js";
 import financeiroRoutes from "./routes/financeiroRoutes.js";
 
-import { errorHandler } from "./middlewares/errorHandler.js";
+//import { errorHandler } from "./middlewares/errorHandler.js";
 
 const app = express();
 
@@ -51,7 +51,7 @@ app.use("/vendas", vendasRoutes);
 app.use("/estoque", estoqueRoutes);
 app.use("/financeiro", financeiroRoutes);
 
-app.use(errorHandler);
+//app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`backend em execução em http://localhost:${PORT}`));
