@@ -5,7 +5,7 @@ export default class Database {
 
   constructor() {
     this.#pool = mysql.createPool({
-      host: 'localhost',
+      host: '127.0.0.1',
       database: 'salarosa',
       user: 'root',
       password: '',
@@ -14,7 +14,7 @@ export default class Database {
     });
   }
 
-  // normal (pool)
+
   ExecutaComando(sql, valores = []) {
     const pool = this.#pool;
     return new Promise((res, rej) => {

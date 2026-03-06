@@ -22,11 +22,12 @@ export default class UsersRepository {
 
   async criar(ent) {
     const sql = `
-      insert into users (id, nome, email, telefone, data_nascimento, perfil, is_consultora, ativo, senha)
-      values (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+    insert into users 
+    (nome, email, telefone, data_nascimento, perfil, is_consultora, ativo, senha)
+    values (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
     const vals = [
-      ent.id,
       ent.nome,
       ent.email,
       ent.telefone,
@@ -36,6 +37,7 @@ export default class UsersRepository {
       ent.ativo ? 1 : 0,
       ent.senha
     ];
+
     return await this.#banco.ExecutaComandoNonQuery(sql, vals);
   }
 

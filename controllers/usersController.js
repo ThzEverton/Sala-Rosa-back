@@ -36,35 +36,53 @@ export default class UsersController {
   }
 
   // POST /users
-  async criar(req, res) {
-    try {
-      const { id, nome, email, telefone, dataNascimento, perfil, isConsultora, ativo, senhaHash } = req.body;
+async criar(req, res) {
+  try {
+    const {
+      id,
+      nome,
+      email,
+      telefone,
+      dataNascimento,
+      perfil,
+      isConsultora,
+      ativo,
+      senha
+    } = req.body;
 
-      if (!id) return res.status(400).json({ msg: "Id é obrigatório (VARCHAR)." });
-      if (!nome || nome.trim().length < 2) return res.status(400).json({ msg: "Nome inválido." });
-      if (!email || !email.includes("@")) return res.status(400).json({ msg: "Email inválido." });
+    // validações mínimas (mantive seu estilo)
+    if (!id) return res.status(400).json({ msg: "Id é obrigatório (VARCHAR)." });
+    if (!nome || nome.trim().length < 2) return res.status(400).json({ msg: "Nome inválido." });
+    if (!email || !email.includes("@")) return res.status(400).json({ msg: "Email inválido." });
+    if (!senha) return res.status(400).json({ msg: "Senha é obrigatória." });
 
-      let u = new Usuario();
-      u.id = id;
-      u.nome = nome;
-      u.email = email;
-      u.telefone = telefone || null;
-      u.dataNascimento = dataNascimento || null;
-      u.perfil = perfil || "cliente";
-      u.isConsultora = isConsultora ? 1 : 0;
-      u.ativo = ativo === undefined ? 1 : (ativo ? 1 : 0);
-      u.senhaHash = senhaHash || null;
+    let u = new Usuario();
+    u.id = id;
+    u.nome = nome;
+    u.email = email;
+    u.telefone = telefone || null;
+    u.dataNascimento = dataNascimento || null;
+    u.perfil = perfil || "cliente";
 
-      const ok = await this.#repo.criar(u);
-      if (!ok) return res.status(400).json({ msg: "Não foi possível criar usuário." });
+    // seu repository converte boolean -> 0/1 também, mas aqui já deixo consistente
+    u.isConsultora = isConsultora ? 1 : 0;
 
-      return res.status(201).json({ msg: "Usuário criado.", id: u.id });
-    } catch (e) {
-      console.error(e);
-      return res.status(500).json({ msg: "Erro ao criar usuário." });
-    }
+    // se não vier, padrão 1 (ativo)
+    u.ativo = (ativo === undefined) ? 1 : (ativo ? 1 : 0);
+
+    // ✅ bate com sua entity e com seu INSERT
+    u.senha = senha;
+
+    const ok = await this.#repo.criar(u);
+    if (!ok) return res.status(400).json({ msg: "Não foi possível criar usuário." });
+     console.log(res);
+    return res.status(201).json({ msg: "Usuário criado.", id: u.id });
+   
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ msg: "Erro ao criar usuário." });
   }
-
+}
   // PUT /users/:id
   async atualizar(req, res) {
     try {

@@ -1,65 +1,72 @@
--- Modelo corrigido (sem triggers)
--- MySQL 8+
+DROP DATABASE IF EXISTS salarosa;
+CREATE DATABASE salarosa CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+USE salarosa;
 
 -- =========================
 -- USERS
 -- =========================
-CREATE TABLE IF NOT EXISTS users (
-  id              VARCHAR(20) PRIMARY KEY,
-  nome            VARCHAR(120) NOT NULL,
-  email           VARCHAR(180) NOT NULL,
-  telefone        VARCHAR(20) NULL,
+CREATE TABLE users (
+  id INT NOT NULL AUTO_INCREMENT,
+  nome VARCHAR(120) NOT NULL,
+  email VARCHAR(180) NOT NULL,
+  telefone VARCHAR(20) NULL,
   data_nascimento DATE NULL,
 
-  -- Mantém seu padrão: consultora é "cliente com flag"
-  perfil          ENUM('gerente','cliente') NOT NULL DEFAULT 'cliente',
-  is_consultora   TINYINT(1) NOT NULL DEFAULT 0,
+  perfil ENUM('gerente','cliente') NOT NULL DEFAULT 'cliente',
+  is_consultora TINYINT(1) NOT NULL DEFAULT 0,
+  ativo TINYINT(1) NOT NULL DEFAULT 1,
+  senha VARCHAR(255) NULL,
 
-  ativo           TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
 
-  -- Senha em hash (bcrypt/argon2) - não guardar senha pura
-  senha_hash      VARCHAR(255) NULL,
-
-  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at      TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-
+  PRIMARY KEY (id),
   UNIQUE KEY uq_users_email (email),
 
-  -- Evita gerente ser marcado como consultora
   CONSTRAINT chk_users_gerente_nao_consultora CHECK (
-    NOT (perfil='gerente' AND is_consultora=1)
+    NOT (perfil = 'gerente' AND is_consultora = 1)
   )
 ) ENGINE=InnoDB;
 
 -- =========================
 -- SERVICOS
 -- =========================
-CREATE TABLE IF NOT EXISTS servicos (
-  id                        VARCHAR(20) PRIMARY KEY,
-  nome                      VARCHAR(120) NOT NULL,
-  descricao                 TEXT NULL,
-  preco                     DECIMAL(10,2) NOT NULL DEFAULT 0,
-  duracao_min               INT NOT NULL DEFAULT 60,
-  ativo                     TINYINT(1) NOT NULL DEFAULT 1,
+CREATE TABLE servicos (
+  id INT NOT NULL AUTO_INCREMENT,
+  nome VARCHAR(120) NOT NULL,
+  descricao TEXT NULL,
+  preco DECIMAL(10,2) NOT NULL DEFAULT 0,
+  duracao_min INT NOT NULL DEFAULT 60,
+  ativo TINYINT(1) NOT NULL DEFAULT 1,
   exclusivo_para_consultora TINYINT(1) NOT NULL DEFAULT 0,
-  created_at                TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at                TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id),
+
+  CONSTRAINT chk_serv_preco CHECK (preco >= 0),
+  CONSTRAINT chk_serv_duracao CHECK (duracao_min > 0)
 ) ENGINE=InnoDB;
 
 -- =========================
 -- PRODUTOS
 -- =========================
-CREATE TABLE IF NOT EXISTS produtos (
-  id             VARCHAR(20) PRIMARY KEY,
-  nome           VARCHAR(160) NOT NULL,
-  unidade        VARCHAR(10) NULL,
-  preco_venda    DECIMAL(10,2) NOT NULL DEFAULT 0,
-  estoque_atual  INT NOT NULL DEFAULT 0,
+CREATE TABLE produtos (
+  id INT NOT NULL AUTO_INCREMENT,
+  nome VARCHAR(160) NOT NULL,
+  unidade VARCHAR(10) NULL,
+  preco_venda DECIMAL(10,2) NOT NULL DEFAULT 0,
+  estoque_atual INT NOT NULL DEFAULT 0,
   estoque_minimo INT NOT NULL DEFAULT 0,
-  ativo          TINYINT(1) NOT NULL DEFAULT 1,
-  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at     TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  ativo TINYINT(1) NOT NULL DEFAULT 1,
 
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id),
+
+  CONSTRAINT chk_prod_preco CHECK (preco_venda >= 0),
   CONSTRAINT chk_prod_estoque_nao_neg CHECK (estoque_atual >= 0),
   CONSTRAINT chk_prod_estoque_min_nao_neg CHECK (estoque_minimo >= 0)
 ) ENGINE=InnoDB;
@@ -67,153 +74,190 @@ CREATE TABLE IF NOT EXISTS produtos (
 -- =========================
 -- CONFIG AGENDA
 -- =========================
-CREATE TABLE IF NOT EXISTS horario_config (
-  id                   TINYINT PRIMARY KEY,
-  hora_inicio_padrao   TIME NOT NULL,
-  hora_fim_padrao      TIME NOT NULL,
+CREATE TABLE horario_config (
+  id INT NOT NULL AUTO_INCREMENT,
+  hora_inicio_padrao TIME NOT NULL,
+  hora_fim_padrao TIME NOT NULL,
   duracao_slot_minutos INT NOT NULL DEFAULT 60,
-  updated_at           TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id),
 
   CONSTRAINT chk_cfg_duracao CHECK (duracao_slot_minutos > 0),
   CONSTRAINT chk_cfg_intervalo CHECK (hora_fim_padrao > hora_inicio_padrao)
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS excecoes_dia (
-  data                DATE PRIMARY KEY,
+CREATE TABLE excecoes_dia (
+  id INT NOT NULL AUTO_INCREMENT,
+  data DATE NOT NULL,
   hora_inicio_excecao TIME NULL,
-  hora_fim_excecao    TIME NULL,
+  hora_fim_excecao TIME NULL,
+
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_exc_data (data),
+
   CONSTRAINT chk_exc_intervalo CHECK (
-    (hora_inicio_excecao IS NULL OR hora_fim_excecao IS NULL) OR (hora_fim_excecao > hora_inicio_excecao)
+    (hora_inicio_excecao IS NULL OR hora_fim_excecao IS NULL)
+    OR
+    (hora_fim_excecao > hora_inicio_excecao)
   )
 ) ENGINE=InnoDB;
 
--- Slot agora é TIME (mais consistente)
-CREATE TABLE IF NOT EXISTS bloqueios_slot (
+CREATE TABLE bloqueios_slot (
+  id INT NOT NULL AUTO_INCREMENT,
   data DATE NOT NULL,
   slot TIME NOT NULL,
-  PRIMARY KEY (data, slot)
+
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_bloq_data_slot (data, slot)
 ) ENGINE=InnoDB;
 
 -- =========================
 -- AGENDAMENTOS
 -- =========================
-CREATE TABLE IF NOT EXISTS agendamentos (
-  id          VARCHAR(20) PRIMARY KEY,
-  tipo        ENUM('individual','turma') NOT NULL,
-  servico_id  VARCHAR(20) NOT NULL,
+CREATE TABLE agendamentos (
+  id INT NOT NULL AUTO_INCREMENT,
+  tipo ENUM('individual','turma') NOT NULL,
+  servico_id INT NOT NULL,
 
-  data        DATE NOT NULL,
+  data DATE NOT NULL,
   hora_inicio TIME NOT NULL,
-  hora_fim    TIME NOT NULL,
+  hora_fim TIME NOT NULL,
 
-  status      ENUM('pendente','confirmado','cancelado','concluido') NOT NULL DEFAULT 'confirmado',
-  observacao  VARCHAR(255) NULL,
-  criado_por_user_id VARCHAR(20) NULL,
+  status ENUM('pendente','confirmado','cancelado','concluido') NOT NULL DEFAULT 'confirmado',
+  observacao VARCHAR(255) NULL,
+  criado_por_user_id INT NULL,
 
-  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at  TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
 
-  CONSTRAINT fk_ag_serv FOREIGN KEY (servico_id) REFERENCES servicos(id) ON UPDATE CASCADE ON DELETE RESTRICT,
-  CONSTRAINT fk_ag_criado FOREIGN KEY (criado_por_user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL,
+  PRIMARY KEY (id),
+
+  CONSTRAINT fk_ag_serv FOREIGN KEY (servico_id) REFERENCES servicos(id)
+    ON UPDATE CASCADE ON DELETE RESTRICT,
+
+  CONSTRAINT fk_ag_criado FOREIGN KEY (criado_por_user_id) REFERENCES users(id)
+    ON UPDATE CASCADE ON DELETE SET NULL,
 
   CONSTRAINT chk_ag_intervalo CHECK (hora_fim > hora_inicio),
 
   KEY idx_ag_data (data),
   KEY idx_ag_status (status),
-  KEY idx_ag_data_inicio (data, hora_inicio)
+  KEY idx_ag_data_inicio (data, hora_inicio),
+  KEY idx_ag_serv (servico_id),
+  KEY idx_ag_criado (criado_por_user_id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS agendamento_participantes (
-  agendamento_id  VARCHAR(20) NOT NULL,
-  user_id         VARCHAR(20) NOT NULL,
+CREATE TABLE agendamento_participantes (
+  id INT NOT NULL AUTO_INCREMENT,
+  agendamento_id INT NOT NULL,
+  user_id INT NOT NULL,
   nome_no_momento VARCHAR(120) NOT NULL,
-  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-  PRIMARY KEY (agendamento_id, user_id),
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_ap_ag_user (agendamento_id, user_id),
 
-  CONSTRAINT fk_ap_ag FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id) ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT fk_ap_user FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+  CONSTRAINT fk_ap_ag FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+
+  CONSTRAINT fk_ap_user FOREIGN KEY (user_id) REFERENCES users(id)
+    ON UPDATE CASCADE ON DELETE RESTRICT,
 
   KEY idx_ap_user (user_id)
 ) ENGINE=InnoDB;
 
--- Reserva de slots para evitar conflitos (PK data+slot)
-CREATE TABLE IF NOT EXISTS agendamento_slots (
+CREATE TABLE agendamento_slots (
+  id INT NOT NULL AUTO_INCREMENT,
   data DATE NOT NULL,
   slot TIME NOT NULL,
-  agendamento_id VARCHAR(20) NOT NULL,
+  agendamento_id INT NOT NULL,
   status ENUM('ativo','cancelado') NOT NULL DEFAULT 'ativo',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-  PRIMARY KEY (data, slot),
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_as_data_slot (data, slot),
 
-  CONSTRAINT fk_as_ag FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id) ON UPDATE CASCADE ON DELETE CASCADE,
-  KEY idx_as_ag (agendamento_id)
+  CONSTRAINT fk_as_ag FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+
+  KEY idx_as_ag (agendamento_id),
+  KEY idx_as_data (data)
 ) ENGINE=InnoDB;
 
 -- =========================
 -- VENDAS
 -- =========================
-CREATE TABLE IF NOT EXISTS vendas (
-  id VARCHAR(20) PRIMARY KEY,
-
-  usuario_responsavel_id VARCHAR(20) NOT NULL,
-  atendimento_id VARCHAR(20) NULL,
+CREATE TABLE vendas (
+  id INT NOT NULL AUTO_INCREMENT,
+  usuario_responsavel_id INT NOT NULL,
+  atendimento_id INT NULL,
 
   data DATE NOT NULL,
   valor_total DECIMAL(10,2) NOT NULL DEFAULT 0,
 
-  -- Alinha com a ERS
   forma_pagto ENUM('dinheiro','cartao','pix') NULL,
   status_pagto ENUM('pendente','pago','cancelado','estornado') NOT NULL DEFAULT 'pendente',
-
   observacao VARCHAR(255) NULL,
 
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
 
-  CONSTRAINT fk_v_user FOREIGN KEY (usuario_responsavel_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
-  CONSTRAINT fk_v_ag FOREIGN KEY (atendimento_id) REFERENCES agendamentos(id) ON UPDATE CASCADE ON DELETE SET NULL,
+  PRIMARY KEY (id),
+
+  CONSTRAINT fk_v_user FOREIGN KEY (usuario_responsavel_id) REFERENCES users(id)
+    ON UPDATE CASCADE ON DELETE RESTRICT,
+
+  CONSTRAINT fk_v_ag FOREIGN KEY (atendimento_id) REFERENCES agendamentos(id)
+    ON UPDATE CASCADE ON DELETE SET NULL,
 
   CONSTRAINT chk_v_valor CHECK (valor_total >= 0),
 
-  KEY idx_v_data (data)
+  KEY idx_v_data (data),
+  KEY idx_v_user (usuario_responsavel_id),
+  KEY idx_v_ag (atendimento_id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS venda_itens (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  venda_id VARCHAR(20) NOT NULL,
+CREATE TABLE venda_itens (
+  id INT NOT NULL AUTO_INCREMENT,
+  venda_id INT NOT NULL,
 
   tipo ENUM('produto','servico') NOT NULL,
-  produto_id VARCHAR(20) NULL,
-  servico_id VARCHAR(20) NULL,
+  produto_id INT NULL,
+  servico_id INT NULL,
 
   quantidade INT NOT NULL,
   preco_unit DECIMAL(10,2) NOT NULL DEFAULT 0,
-  subtotal DECIMAL(10,2) NOT NULL DEFAULT 0,
 
-  CONSTRAINT fk_vi_v FOREIGN KEY (venda_id) REFERENCES vendas(id) ON UPDATE CASCADE ON DELETE CASCADE,
-  CONSTRAINT fk_vi_p FOREIGN KEY (produto_id) REFERENCES produtos(id) ON UPDATE CASCADE ON DELETE SET NULL,
-  CONSTRAINT fk_vi_s FOREIGN KEY (servico_id) REFERENCES servicos(id) ON UPDATE CASCADE ON DELETE SET NULL,
+  subtotal DECIMAL(10,2)
+    GENERATED ALWAYS AS (quantidade * preco_unit) STORED,
+
+  PRIMARY KEY (id),
+
+  CONSTRAINT fk_vi_v FOREIGN KEY (venda_id) REFERENCES vendas(id)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+
+  CONSTRAINT fk_vi_p FOREIGN KEY (produto_id) REFERENCES produtos(id)
+    ON UPDATE CASCADE ON DELETE SET NULL,
+
+  CONSTRAINT fk_vi_s FOREIGN KEY (servico_id) REFERENCES servicos(id)
+    ON UPDATE CASCADE ON DELETE SET NULL,
 
   CONSTRAINT chk_vi_quant CHECK (quantidade > 0),
-  CONSTRAINT chk_vi_tipo_ref CHECK (
-    (tipo='produto' AND produto_id IS NOT NULL AND servico_id IS NULL)
-    OR
-    (tipo='servico' AND servico_id IS NOT NULL AND produto_id IS NULL)
-  ),
   CONSTRAINT chk_vi_preco CHECK (preco_unit >= 0),
-  CONSTRAINT chk_vi_subtotal CHECK (subtotal >= 0),
 
-  KEY idx_vi_venda (venda_id)
+  KEY idx_vi_venda (venda_id),
+  KEY idx_vi_prod (produto_id),
+  KEY idx_vi_serv (servico_id),
+  KEY idx_vi_tipo (tipo)
 ) ENGINE=InnoDB;
 
 -- =========================
 -- ESTOQUE MOVIMENTAÇÕES
 -- =========================
-CREATE TABLE IF NOT EXISTS estoque_movimentacoes (
-  id VARCHAR(20) PRIMARY KEY,
-  produto_id VARCHAR(20) NOT NULL,
+CREATE TABLE estoque_movimentacoes (
+  id INT NOT NULL AUTO_INCREMENT,
+  produto_id INT NOT NULL,
 
   tipo ENUM('entrada','saida','ajuste') NOT NULL,
   quantidade INT NOT NULL,
@@ -221,30 +265,43 @@ CREATE TABLE IF NOT EXISTS estoque_movimentacoes (
   data_ref DATE NOT NULL,
   observacao VARCHAR(255) NULL,
 
-  venda_id VARCHAR(20) NULL,
-  agendamento_id VARCHAR(20) NULL,
-
-  usuario_responsavel_id VARCHAR(20) NULL,
+  venda_id INT NULL,
+  agendamento_id INT NULL,
+  usuario_responsavel_id INT NULL,
 
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-  CONSTRAINT fk_em_p FOREIGN KEY (produto_id) REFERENCES produtos(id) ON UPDATE CASCADE ON DELETE RESTRICT,
-  CONSTRAINT fk_em_v FOREIGN KEY (venda_id) REFERENCES vendas(id) ON UPDATE CASCADE ON DELETE SET NULL,
-  CONSTRAINT fk_em_a FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id) ON UPDATE CASCADE ON DELETE SET NULL,
-  CONSTRAINT fk_em_u FOREIGN KEY (usuario_responsavel_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL,
+  PRIMARY KEY (id),
+
+  CONSTRAINT fk_em_p FOREIGN KEY (produto_id) REFERENCES produtos(id)
+    ON UPDATE CASCADE ON DELETE RESTRICT,
+
+  CONSTRAINT fk_em_v FOREIGN KEY (venda_id) REFERENCES vendas(id)
+    ON UPDATE CASCADE ON DELETE SET NULL,
+
+  CONSTRAINT fk_em_a FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id)
+    ON UPDATE CASCADE ON DELETE SET NULL,
+
+  CONSTRAINT fk_em_u FOREIGN KEY (usuario_responsavel_id) REFERENCES users(id)
+    ON UPDATE CASCADE ON DELETE SET NULL,
 
   CONSTRAINT chk_em_quant_regra CHECK (
-    (tipo IN ('entrada','saida') AND quantidade > 0) OR (tipo='ajuste' AND quantidade <> 0)
+    (tipo IN ('entrada','saida') AND quantidade > 0)
+    OR
+    (tipo = 'ajuste' AND quantidade <> 0)
   ),
 
-  KEY idx_em_prod_data (produto_id, data_ref)
+  KEY idx_em_prod_data (produto_id, data_ref),
+  KEY idx_em_data (data_ref),
+  KEY idx_em_venda (venda_id),
+  KEY idx_em_ag (agendamento_id)
 ) ENGINE=InnoDB;
 
 -- =========================
--- FINANCEIRO (por VENDA e por AGENDAMENTO)
+-- FINANCEIRO
 -- =========================
-CREATE TABLE IF NOT EXISTS financeiro_lancamentos (
-  id VARCHAR(20) PRIMARY KEY,
+CREATE TABLE financeiro_lancamentos (
+  id INT NOT NULL AUTO_INCREMENT,
 
   descricao VARCHAR(200) NOT NULL,
   valor DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -254,40 +311,100 @@ CREATE TABLE IF NOT EXISTS financeiro_lancamentos (
 
   data_ref DATE NOT NULL,
 
-  -- No caso de agendamento: 1 lançamento por participante => user_id obrigatório
-  user_id VARCHAR(20) NULL,
-
-  -- No caso de venda: 1 lançamento por venda
-  venda_id VARCHAR(20) NULL,
-
-  agendamento_id VARCHAR(20) NULL,
+  user_id INT NULL,
+  venda_id INT NULL,
+  agendamento_id INT NULL,
 
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
 
-  CONSTRAINT fk_fin_u FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL,
-  CONSTRAINT fk_fin_v FOREIGN KEY (venda_id) REFERENCES vendas(id) ON UPDATE CASCADE ON DELETE SET NULL,
-  CONSTRAINT fk_fin_a FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id) ON UPDATE CASCADE ON DELETE SET NULL,
+  PRIMARY KEY (id),
+
+  CONSTRAINT fk_fin_u FOREIGN KEY (user_id) REFERENCES users(id)
+    ON UPDATE CASCADE ON DELETE SET NULL,
+
+  CONSTRAINT fk_fin_v FOREIGN KEY (venda_id) REFERENCES vendas(id)
+    ON UPDATE CASCADE ON DELETE SET NULL,
+
+  CONSTRAINT fk_fin_a FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id)
+    ON UPDATE CASCADE ON DELETE SET NULL,
 
   CONSTRAINT chk_fin_valor CHECK (valor >= 0),
 
-  -- Impede duplicar financeiro por venda (1:1)
   UNIQUE KEY uq_fin_venda (venda_id),
-
-  -- Impede duplicar cobrança do mesmo participante no mesmo agendamento (1:1 por user)
   UNIQUE KEY uq_fin_ag_user (agendamento_id, user_id),
 
   KEY idx_fin_status (status),
-  KEY idx_fin_data (data_ref)
+  KEY idx_fin_data (data_ref),
+  KEY idx_fin_user (user_id),
+  KEY idx_fin_ag (agendamento_id)
 ) ENGINE=InnoDB;
 
 -- =========================
--- Seed config (1 linha)
+-- TRIGGERS PARA venda_itens
+-- mantém a lógica original sem mudar a modelagem
 -- =========================
-INSERT INTO horario_config (id, hora_inicio_padrao, hora_fim_padrao, duracao_slot_minutos)
-VALUES (1, '08:00:00', '18:00:00', 60)
-ON DUPLICATE KEY UPDATE
-  hora_inicio_padrao=VALUES(hora_inicio_padrao),
-  hora_fim_padrao=VALUES(hora_fim_padrao),
-  duracao_slot_minutos=VALUES(duracao_slot_minutos);
+DELIMITER $$
 
+CREATE TRIGGER trg_venda_itens_bi
+BEFORE INSERT ON venda_itens
+FOR EACH ROW
+BEGIN
+  IF NEW.tipo = 'produto' THEN
+    IF NEW.produto_id IS NULL OR NEW.servico_id IS NOT NULL THEN
+      SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Para tipo produto: produto_id obrigatório e servico_id deve ser NULL';
+    END IF;
+  ELSEIF NEW.tipo = 'servico' THEN
+    IF NEW.servico_id IS NULL OR NEW.produto_id IS NOT NULL THEN
+      SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Para tipo servico: servico_id obrigatório e produto_id deve ser NULL';
+    END IF;
+  END IF;
+END$$
+
+CREATE TRIGGER trg_venda_itens_bu
+BEFORE UPDATE ON venda_itens
+FOR EACH ROW
+BEGIN
+  IF NEW.tipo = 'produto' THEN
+    IF NEW.produto_id IS NULL OR NEW.servico_id IS NOT NULL THEN
+      SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Para tipo produto: produto_id obrigatório e servico_id deve ser NULL';
+    END IF;
+  ELSEIF NEW.tipo = 'servico' THEN
+    IF NEW.servico_id IS NULL OR NEW.produto_id IS NOT NULL THEN
+      SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Para tipo servico: servico_id obrigatório e produto_id deve ser NULL';
+    END IF;
+  END IF;
+END$$
+
+DELIMITER ;
+
+-- =========================
+-- SEED CONFIG
+-- =========================
+INSERT INTO horario_config (hora_inicio_padrao, hora_fim_padrao, duracao_slot_minutos)
+VALUES ('08:00:00', '18:00:00', 60);
+
+
+INSERT INTO users (nome, email, perfil, is_consultora, ativo, senha)
+VALUES ('Admin', 'admin@salarosa.com', 'gerente', 0, 1, '123');
+
+INSERT INTO servicos (nome, preco, duracao_min)
+VALUES ('Design de sobrancelha', 50.00, 60);
+
+INSERT INTO produtos (nome, unidade, preco_venda, estoque_atual, estoque_minimo)
+VALUES ('Henna', 'UN', 25.00, 10, 2);
+
+INSERT INTO vendas (usuario_responsavel_id, data, valor_total, forma_pagto, status_pagto)
+VALUES (1, CURDATE(), 50.00, 'pix', 'pago');
+
+-- certo
+INSERT INTO venda_itens (venda_id, tipo, produto_id, servico_id, quantidade, preco_unit)
+VALUES (1, 'produto', 1, NULL, 2, 25.00);
+
+-- errado
+INSERT INTO venda_itens (venda_id, tipo, produto_id, servico_id, quantidade, preco_unit)
+VALUES (1, 'produto', NULL, 1, 1, 50.00);

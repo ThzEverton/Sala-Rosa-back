@@ -11,16 +11,29 @@ let auth = new AuthMiddleware();
 router.post("/", (req, res) => {
   // #swagger.tags = ['Usuário']
   // #swagger.summary = 'Cadastra um novo usuário'
+
   /* #swagger.requestBody = {
       required: true,
       content: {
         "application/json": {
-          schema: { $ref: '#/components/schemas/usuario' }
+          schema: { $ref: '#/components/schemas/usuarioCreate' },
+          example: {
+            id: "u100",
+            nome: "Ana Gerente",
+            email: "ana@salarosa.com",
+            telefone: "11999990001",
+            dataNascimento: "2000-01-01",
+            perfil: "gerente",
+            isConsultora: false,
+            ativo: true,
+            senha: "123"
+          }
         }
       }
-    }
-  */
+  } */
+
   ctrl.criar(req, res);
+
 });
 
 // GET /users

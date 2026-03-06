@@ -10,7 +10,7 @@ const doc = {
   },
   servers: [
     {
-      url: `http://localhost:${process.env.PORT || 3000}/`,
+      url: `http://localhost:${process.env.PORT || 5000}/`,
     },
   ],
   components: {
@@ -21,7 +21,6 @@ const doc = {
       },
     },
     schemas: {
-      // ===== PADRÃO DE ERRO (bate com seus controllers: { msg: "..." })
       erro: {
         type: "object",
         properties: {
@@ -29,22 +28,31 @@ const doc = {
         },
       },
 
-      // ===== USERS
-      usuario: {
+      usuarioCreate: {
         type: "object",
-        required: ["id", "nome", "email"],
+        required: ["nome", "email", "perfil", "senha"],
         properties: {
-          id: { type: "string", example: "u100" }, // no seu banco é VARCHAR(20)
           nome: { type: "string", example: "Ana Gerente" },
           email: { type: "string", example: "ana@salarosa.com" },
           telefone: { type: "string", example: "11999990001" },
           dataNascimento: { type: "string", example: "2000-01-01" },
-
-          perfil: { type: "string", example: "gerente" }, // gerente|cliente
-          isConsultora: { type: "integer", example: 0 },  // 0|1 (TINYINT)
-          ativo: { type: "integer", example: 1 },         // 0|1
-          senhaHash: { type: "string", example: null },
+          perfil: { type: "string", example: "gerente" },
+          isConsultora: { type: "integer", example: 0 },
+          ativo: { type: "integer", example: 1 },
+          senha: { type: "string", example: "123" },
         },
+
+        // ✅ isso aqui é o que faz o "Try it out" vir bonitinho sem você ter que por example na rota
+        example: {
+          nome: "Ana Gerente",
+          email: "ana@salarosa.com",
+          telefone: "11999990001",
+          dataNascimento: "2000-01-01",
+          perfil: "gerente",
+          isConsultora: 0,
+          ativo: 1,
+          senha: "123"
+        }
       },
 
       usuarioUpdate: {
@@ -70,8 +78,8 @@ const doc = {
           descricao: { type: "string", example: "Modelagem e design profissional." },
           preco: { type: "number", example: 80.0 },
           duracaoMin: { type: "integer", example: 60 },
-          ativo: { type: "integer", example: 1 },                 // 0|1
-          exclusivoParaConsultora: { type: "integer", example: 0 } // 0|1
+          ativo: { type: "integer", example: 1 }, // 0|1
+          exclusivoParaConsultora: { type: "integer", example: 0 }, // 0|1
         },
       },
 
@@ -83,7 +91,7 @@ const doc = {
           preco: { type: "number", example: 90.0 },
           duracaoMin: { type: "integer", example: 60 },
           ativo: { type: "integer", example: 1 },
-          exclusivoParaConsultora: { type: "integer", example: 0 }
+          exclusivoParaConsultora: { type: "integer", example: 0 },
         },
       },
 
@@ -113,8 +121,7 @@ const doc = {
         },
       },
 
-      // (Opcional) Mantive seu schema antigo como alias, se você já usa em algum lugar.
-      // Se não usa, pode remover.
+      // Alias antigo (opcional)
       user: {
         type: "object",
         properties: {
