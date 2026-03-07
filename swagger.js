@@ -135,6 +135,75 @@ const doc = {
       },
     },
   },
+  horarioConfig: {
+  type: "object",
+  properties: {
+    id: { type: "integer", example: 1 },
+    horaInicioPadrao: { type: "string", example: "08:00:00" },
+    horaFimPadrao: { type: "string", example: "18:00:00" },
+    duracaoSlotMinutos: { type: "integer", example: 60 }
+  }
+},
+
+excecaoDia: {
+  type: "object",
+  properties: {
+    data: { type: "string", example: "2026-03-10" },
+    horaInicioExcecao: { type: "string", example: "10:00:00" },
+    horaFimExcecao: { type: "string", example: "16:00:00" }
+  }
+},
+
+bloqueioSlot: {
+  type: "object",
+  properties: {
+    data: { type: "string", example: "2026-03-10" },
+    slot: { type: "string", example: "14:00:00" }
+  }
+},
+
+agendaConfigUpdate: {
+  type: "object",
+  required: ["horaInicioPadrao", "horaFimPadrao", "duracaoSlotMinutos"],
+  properties: {
+    horaInicioPadrao: { type: "string", example: "08:00:00" },
+    horaFimPadrao: { type: "string", example: "18:00:00" },
+    duracaoSlotMinutos: { type: "integer", example: 60 }
+  },
+  example: {
+    horaInicioPadrao: "08:00:00",
+    horaFimPadrao: "18:00:00",
+    duracaoSlotMinutos: 60
+  }
+},
+
+excecaoDiaCreate: {
+  type: "object",
+  required: ["data", "horaInicioExcecao", "horaFimExcecao"],
+  properties: {
+    data: { type: "string", example: "2026-03-10" },
+    horaInicioExcecao: { type: "string", example: "10:00:00" },
+    horaFimExcecao: { type: "string", example: "16:00:00" }
+  },
+  example: {
+    data: "2026-03-10",
+    horaInicioExcecao: "10:00:00",
+    horaFimExcecao: "16:00:00"
+  }
+},
+
+bloqueioToggle: {
+  type: "object",
+  required: ["data", "slot"],
+  properties: {
+    data: { type: "string", example: "2026-03-10" },
+    slot: { type: "string", example: "14:00:00" }
+  },
+  example: {
+    data: "2026-03-10",
+    slot: "14:00:00"
+  }
+},
 };
 
 const routes = ["./server.js"];

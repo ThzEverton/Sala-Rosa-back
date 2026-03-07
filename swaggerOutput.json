@@ -830,12 +830,381 @@
         }
       }
     },
-    "/agenda/_ping": {
+    "/agenda/config": {
       "get": {
+        "tags": [
+          "Agenda"
+        ],
+        "summary": "Retorna a configuração de horário padrão da agenda",
         "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Agenda"
+        ],
+        "summary": "Atualiza a configuração de horário padrão da agenda",
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "horaInicioPadrao": {
+                    "example": "any"
+                  },
+                  "horaFimPadrao": {
+                    "example": "any"
+                  },
+                  "duracaoSlotMinutos": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agenda/excecoes": {
+      "get": {
+        "tags": [
+          "Agenda"
+        ],
+        "summary": "Lista as exceções de horários por dia",
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Agenda"
+        ],
+        "summary": "Cria ou atualiza uma exceção de horário para um dia específico",
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "example": "any"
+                  },
+                  "horaInicioExcecao": {
+                    "example": "any"
+                  },
+                  "horaFimExcecao": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agenda/excecoes/{data}": {
+      "delete": {
+        "tags": [
+          "Agenda"
+        ],
+        "summary": "Remove uma exceção de horário pela data",
+        "description": "",
+        "parameters": [
+          {
+            "name": "data",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/agenda/bloqueios": {
+      "get": {
+        "tags": [
+          "Agenda"
+        ],
+        "summary": "Lista os slots bloqueados",
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/agenda/slots": {
+      "get": {
+        "tags": [
+          "Agenda"
+        ],
+        "summary": "Lista os slots disponíveis de um dia",
+        "description": "",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/agenda/bloqueios/toggle": {
+      "post": {
+        "tags": [
+          "Agenda"
+        ],
+        "summary": "Bloqueia ou desbloqueia um slot de horário",
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "example": "any"
+                  },
+                  "slot": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1718,6 +2087,132 @@
           "name": "user"
         }
       }
+    }
+  },
+  "horarioConfig": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "integer",
+        "example": 1
+      },
+      "horaInicioPadrao": {
+        "type": "string",
+        "example": "08:00:00"
+      },
+      "horaFimPadrao": {
+        "type": "string",
+        "example": "18:00:00"
+      },
+      "duracaoSlotMinutos": {
+        "type": "integer",
+        "example": 60
+      }
+    }
+  },
+  "excecaoDia": {
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "string",
+        "example": "2026-03-10"
+      },
+      "horaInicioExcecao": {
+        "type": "string",
+        "example": "10:00:00"
+      },
+      "horaFimExcecao": {
+        "type": "string",
+        "example": "16:00:00"
+      }
+    }
+  },
+  "bloqueioSlot": {
+    "type": "object",
+    "properties": {
+      "data": {
+        "type": "string",
+        "example": "2026-03-10"
+      },
+      "slot": {
+        "type": "string",
+        "example": "14:00:00"
+      }
+    }
+  },
+  "agendaConfigUpdate": {
+    "type": "object",
+    "required": [
+      "horaInicioPadrao",
+      "horaFimPadrao",
+      "duracaoSlotMinutos"
+    ],
+    "properties": {
+      "horaInicioPadrao": {
+        "type": "string",
+        "example": "08:00:00"
+      },
+      "horaFimPadrao": {
+        "type": "string",
+        "example": "18:00:00"
+      },
+      "duracaoSlotMinutos": {
+        "type": "integer",
+        "example": 60
+      }
+    },
+    "example": {
+      "horaInicioPadrao": "08:00:00",
+      "horaFimPadrao": "18:00:00",
+      "duracaoSlotMinutos": 60
+    }
+  },
+  "excecaoDiaCreate": {
+    "type": "object",
+    "required": [
+      "data",
+      "horaInicioExcecao",
+      "horaFimExcecao"
+    ],
+    "properties": {
+      "data": {
+        "type": "string",
+        "example": "2026-03-10"
+      },
+      "horaInicioExcecao": {
+        "type": "string",
+        "example": "10:00:00"
+      },
+      "horaFimExcecao": {
+        "type": "string",
+        "example": "16:00:00"
+      }
+    },
+    "example": {
+      "data": "2026-03-10",
+      "horaInicioExcecao": "10:00:00",
+      "horaFimExcecao": "16:00:00"
+    }
+  },
+  "bloqueioToggle": {
+    "type": "object",
+    "required": [
+      "data",
+      "slot"
+    ],
+    "properties": {
+      "data": {
+        "type": "string",
+        "example": "2026-03-10"
+      },
+      "slot": {
+        "type": "string",
+        "example": "14:00:00"
+      }
+    },
+    "example": {
+      "data": "2026-03-10",
+      "slot": "14:00:00"
     }
   }
 }

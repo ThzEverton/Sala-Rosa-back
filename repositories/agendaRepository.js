@@ -62,16 +62,16 @@ export default class AgendaRepository {
     return rows.length > 0;
   }
 
-  async toggleBloqueio(data, slot) {
-    const delSql = `delete from bloqueios_slot where data=? and slot=?`;
-    const delRes = await this.#banco.ExecutaComando(delSql, [data, slot]);
-    if (delRes.affectedRows && delRes.affectedRows > 0) return false;
+ async toggleBloqueio(data, slot) {
+  const delSql = `delete from bloqueios_slot where data=? and slot=?`;
+  const delRes = await this.#banco.ExecutaComandoNonQuery(delSql, [data, slot]);
 
-    const insSql = `insert into bloqueios_slot (data, slot) values (?, ?)`;
-    await this.#banco.ExecutaComando(insSql, [data, slot]);
-    return true;
-  }
+  if (delRes.affectedRows && delRes.affectedRows > 0) return false;
 
+  const insSql = `insert into bloqueios_slot (data, slot) values (?, ?)`;
+  await this.#banco.ExecutaComandoNonQuery(insSql, [data, slot]);
+  return true;
+}
   toMapConfig(row) {
     let c = new HorarioConfig();
     c.id = row["id"];
