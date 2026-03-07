@@ -1239,12 +1239,109 @@
         }
       }
     },
-    "/estoque/_ping": {
+    "/estoque/": {
       "get": {
+        "tags": [
+          "Estoque"
+        ],
+        "summary": "Lista as movimentações de estoque",
         "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Estoque"
+        ],
+        "summary": "Registra uma movimentação de estoque",
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "produtoId": {
+                    "example": "any"
+                  },
+                  "tipo": {
+                    "example": "any"
+                  },
+                  "quantidade": {
+                    "example": "any"
+                  },
+                  "dataRef": {
+                    "example": "any"
+                  },
+                  "observacao": {
+                    "example": "any"
+                  },
+                  "vendaId": {
+                    "example": "any"
+                  },
+                  "agendamentoId": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
           }
         }
       }
