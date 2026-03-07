@@ -56,17 +56,35 @@ export default class AgendaRepository {
     return rows.map(r => this.toMapBloqueio(r));
   }
 
-  async existeBloqueio(data, slot) {
-    const sql = `select 1 from bloqueios_slot where data=? and slot=? limit 1`;
-    const rows = await this.#banco.ExecutaComando(sql, [data, slot]);
-    return rows.length > 0;
+async existeBloqueio(data, slot) {
+  const sql = `
+    select id, data, slot
+    from bloqueios_slot
+    where data = ? and slot = ?
+    limit 1
+  `;
+
+  console.log('EXISTE BLOQUEIO - ENTRADA:', { data, slot });
+
+  const rows = await this.#banco.ExecutaComando(sql, [data, slot]);
+
+  console.log('EXISTE BLOQUEIO - SAIDA:', rows);
+
+  return rows.length > 0;
+}
+
+async toggleBloqueio(data, slot) {
+  data = String(data).slice(0, 10);
+  slot = String(slot).slice(0, 8);
+
+  const existe = await this.existeBloqueio(data, slot);
+  console.log('TOGGLE:', { data, slot, existe });
+
+  if (existe) {
+    const delSql = `delete from bloqueios_slot where data = ? and slot = ?`;
+    await this.#banco.ExecutaComandoNonQuery(delSql, [data, slot]);
+    return false;
   }
-
- async toggleBloqueio(data, slot) {
-  const delSql = `delete from bloqueios_slot where data=? and slot=?`;
-  const delRes = await this.#banco.ExecutaComandoNonQuery(delSql, [data, slot]);
-
-  if (delRes.affectedRows && delRes.affectedRows > 0) return false;
 
   const insSql = `insert into bloqueios_slot (data, slot) values (?, ?)`;
   await this.#banco.ExecutaComandoNonQuery(insSql, [data, slot]);
