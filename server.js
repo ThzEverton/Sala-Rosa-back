@@ -2,8 +2,8 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-//import swaggerFile from "./swaggerOutput.json" with { type: "json" };
-import swaggerFile from './swaggerOutput.json' assert { type: 'json' };
+import swaggerFile from "./swaggerOutput.json" with { type: "json" };
+//import swaggerFile from './swaggerOutput.json' assert { type: 'json' };
 import swaggerUi from "swagger-ui-express";
 
 
