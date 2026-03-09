@@ -22,7 +22,7 @@ export default class UsersRepository {
 
   async criar(ent) {
     const sql = `
-    insert into users 
+    insert into users
     (nome, email, telefone, data_nascimento, perfil, is_consultora, ativo, senha)
     values (?, ?, ?, ?, ?, ?, ?, ?)
   `;

@@ -10,7 +10,7 @@ export default class ServicosRepository {
 
   async listar() {
     const sql = `select * from servicos order by nome`;
-    const rows = await this.#banco.ExecutaComando(sql);
+    const rows = await this.#banco.ExecutaComando(sql, []);
     return rows.map(r => this.toMap(r));
   }
 
@@ -18,7 +18,7 @@ export default class ServicosRepository {
     const sql = `
       select * from servicos
       where ativo = 1
-        and ( ? = 1 or exclusivo_para_consultora = 0 )
+        and (? = 1 or exclusivo_para_consultora = 0)
       order by nome
     `;
     const rows = await this.#banco.ExecutaComando(sql, [isConsultora ? 1 : 0]);
@@ -33,29 +33,40 @@ export default class ServicosRepository {
 
   async criar(ent) {
     const sql = `
-      insert into servicos (id, nome, descricao, preco, duracao_min, ativo, exclusivo_para_consultora)
-      values (?, ?, ?, ?, ?, ?, ?)
+      insert into servicos
+      (nome, descricao, preco, duracao_min, ativo, exclusivo_para_consultora)
+      values (?, ?, ?, ?, ?, ?)
     `;
+
     const vals = [
-      ent.id, ent.nome, ent.descricao, ent.preco, ent.duracaoMin,
+      ent.nome,
+      ent.descricao,
+      ent.preco,
+      ent.duracaoMin,
       ent.ativo ? 1 : 0,
       ent.exclusivoParaConsultora ? 1 : 0
     ];
+
     return await this.#banco.ExecutaComandoNonQuery(sql, vals);
   }
 
   async atualizar(ent) {
     const sql = `
       update servicos
-      set nome=?, descricao=?, preco=?, duracao_min=?, ativo=?, exclusivo_para_consultora=?
-      where id=?
+      set nome = ?, descricao = ?, preco = ?, duracao_min = ?, ativo = ?, exclusivo_para_consultora = ?
+      where id = ?
     `;
+
     const vals = [
-      ent.nome, ent.descricao, ent.preco, ent.duracaoMin,
+      ent.nome,
+      ent.descricao,
+      ent.preco,
+      ent.duracaoMin,
       ent.ativo ? 1 : 0,
       ent.exclusivoParaConsultora ? 1 : 0,
       ent.id
     ];
+
     return await this.#banco.ExecutaComandoNonQuery(sql, vals);
   }
 

@@ -22,14 +22,19 @@ export default class ProdutosRepository {
 
   async criar(ent) {
     const sql = `
-      insert into produtos (id, nome, unidade, preco_venda, estoque_atual, estoque_minimo, ativo)
-      values (?, ?, ?, ?, ?, ?, ?)
-    `;
+    insert into produtos (nome, unidade, preco_venda, estoque_atual, estoque_minimo, ativo)
+    values (?, ?, ?, ?, ?, ?)
+  `;
+
     const vals = [
-      ent.id, ent.nome, ent.unidade,
-      ent.precoVenda, ent.estoqueAtual, ent.estoqueMinimo,
+      ent.nome,
+      ent.unidade,
+      ent.precoVenda,
+      ent.estoqueAtual ?? 0,
+      ent.estoqueMinimo ?? 0,
       ent.ativo ? 1 : 0
     ];
+
     return await this.#banco.ExecutaComandoNonQuery(sql, vals);
   }
 
