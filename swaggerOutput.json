@@ -918,10 +918,16 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "horaInicioPadrao": {
+                  "horaInicioSemana": {
                     "example": "any"
                   },
-                  "horaFimPadrao": {
+                  "horaFimSemana": {
+                    "example": "any"
+                  },
+                  "horaInicioFimSemana": {
+                    "example": "any"
+                  },
+                  "horaFimFimSemana": {
                     "example": "any"
                   },
                   "duracaoSlotMinutos": {

@@ -7,6 +7,17 @@ export default class AgendaController {
     this.#repo = new AgendaRepository();
   }
 
+  getTipoDia(data) {
+    const [ano, mes, dia] = String(data).slice(0, 10).split("-").map(Number);
+    const d = new Date(ano, mes - 1, dia);
+    const diaSemana = d.getDay(); // 0 = domingo, 6 = sábado
+
+    if (diaSemana === 0 || diaSemana === 6) {
+      return "fim_semana";
+    }
+
+    return "semana";
+  }
 
   async getConfig(req, res) {
     try {
@@ -16,7 +27,14 @@ export default class AgendaController {
         return res.status(404).json({ msg: "Configuração de agenda não encontrada" });
       }
 
-      return res.status(200).json(config);
+      return res.status(200).json({
+        id: config.id,
+        horaInicioSemana: config.horaInicioSemana,
+        horaFimSemana: config.horaFimSemana,
+        horaInicioFimSemana: config.horaInicioFimSemana,
+        horaFimFimSemana: config.horaFimFimSemana,
+        duracaoSlotMinutos: config.duracaoSlotMinutos
+      });
     } catch (error) {
       console.error(error);
       return res.status(500).json({ msg: "Erro ao buscar configuração da agenda" });
@@ -25,16 +43,26 @@ export default class AgendaController {
 
   async putConfig(req, res) {
     try {
-      const { horaInicioPadrao, horaFimPadrao, duracaoSlotMinutos } = req.body;
+      const {
+        horaInicioSemana,
+        horaFimSemana,
+        horaInicioFimSemana,
+        horaFimFimSemana,
+        duracaoSlotMinutos
+      } = req.body;
 
-      if (!horaInicioPadrao || !horaFimPadrao || !duracaoSlotMinutos) {
-        return res.status(400).json({ msg: "horaInicioPadrao, horaFimPadrao e duracaoSlotMinutos são obrigatórios" });
+      if (!horaInicioSemana || !horaFimSemana || !duracaoSlotMinutos) {
+        return res.status(400).json({
+          msg: "horaInicioSemana, horaFimSemana e duracaoSlotMinutos são obrigatórios"
+        });
       }
 
       const ent = {
-        horaInicioPadrao,
-        horaFimPadrao,
-        duracaoSlotMinutos
+        horaInicioSemana,
+        horaFimSemana,
+        horaInicioFimSemana: horaInicioFimSemana || null,
+        horaFimFimSemana: horaFimFimSemana || null,
+        duracaoSlotMinutos: Number(duracaoSlotMinutos)
       };
 
       const ok = await this.#repo.atualizarConfig(ent);
@@ -65,7 +93,9 @@ export default class AgendaController {
       const { data, horaInicioExcecao, horaFimExcecao } = req.body;
 
       if (!data || !horaInicioExcecao || !horaFimExcecao) {
-        return res.status(400).json({ msg: "data, horaInicioExcecao e horaFimExcecao são obrigatórios" });
+        return res.status(400).json({
+          msg: "data, horaInicioExcecao e horaFimExcecao são obrigatórios"
+        });
       }
 
       const ent = {
@@ -86,54 +116,85 @@ export default class AgendaController {
       return res.status(500).json({ msg: "Erro ao salvar exceção" });
     }
   }
+
   async obterSlots(req, res) {
-  try {
-    const data = req.query.date;
+    try {
+      const data = req.query.date;
 
-    if (!data) {
-      return res.status(400).json({ msg: "Data é obrigatória" });
+      if (!data) {
+        return res.status(400).json({ msg: "Data é obrigatória" });
+      }
+
+      const config = await this.#repo.obterConfig();
+      const excecao = await this.#repo.obterExcecaoPorData(data);
+      const bloqueios = await this.#repo.listarBloqueios();
+
+      if (!config) {
+        return res.status(404).json({ msg: "Configuração de agenda não encontrada" });
+      }
+
+      let inicio = null;
+      let fim = null;
+      const duracao = Number(config.duracaoSlotMinutos);
+
+      if (excecao) {
+        inicio = String(excecao.horaInicioExcecao).slice(0, 8);
+        fim = String(excecao.horaFimExcecao).slice(0, 8);
+      } else {
+        const tipoDia = this.getTipoDia(data);
+
+        if (tipoDia === "fim_semana") {
+          if (!config.horaInicioFimSemana || !config.horaFimFimSemana) {
+            return res.status(200).json([]);
+          }
+
+          inicio = String(config.horaInicioFimSemana).slice(0, 8);
+          fim = String(config.horaFimFimSemana).slice(0, 8);
+        } else {
+          if (!config.horaInicioSemana || !config.horaFimSemana) {
+            return res.status(200).json([]);
+          }
+
+          inicio = String(config.horaInicioSemana).slice(0, 8);
+          fim = String(config.horaFimSemana).slice(0, 8);
+        }
+      }
+
+      if (!inicio || !fim) {
+        return res.status(200).json([]);
+      }
+
+      const slots = [];
+
+      let atual = new Date(`1970-01-01T${inicio}`);
+      const fimDate = new Date(`1970-01-01T${fim}`);
+
+      while (atual < fimDate) {
+        const hora = atual.toTimeString().slice(0, 8);
+
+        const bloqueado = bloqueios.some(
+          (b) =>
+            String(b.data).slice(0, 10) === data &&
+            String(b.slot).slice(0, 8) === hora
+        );
+
+        slots.push({
+          slot: hora,
+          bloqueado,
+          ocupado: false,
+          status: bloqueado ? "bloqueado" : "disponivel"
+        });
+
+        atual.setMinutes(atual.getMinutes() + duracao);
+      }
+
+      return res.status(200).json(slots);
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ msg: err.message });
     }
-
-    const config = await this.#repo.obterConfig();
-    const bloqueios = await this.#repo.listarBloqueios();
-
-    if (!config) {
-      return res.status(404).json({ msg: "Configuração de agenda não encontrada" });
-    }
-
-    const inicio = String(config.horaInicioPadrao).slice(0, 8);
-    const fim = String(config.horaFimPadrao).slice(0, 8);
-    const duracao = Number(config.duracaoSlotMinutos);
-
-    const slots = [];
-
-    let atual = new Date(`1970-01-01T${inicio}`);
-    const fimDate = new Date(`1970-01-01T${fim}`);
-
-    while (atual < fimDate) {
-      const hora = atual.toTimeString().slice(0, 8);
-
-      const bloqueado = bloqueios.some(b =>
-        String(b.data).slice(0, 10) === data &&
-        String(b.slot).slice(0, 8) === hora
-      );
-
-      slots.push({
-        slot: hora,
-        bloqueado,
-        ocupado: false,
-        status: bloqueado ? "bloqueado" : "disponivel"
-      });
-
-      atual.setMinutes(atual.getMinutes() + duracao);
-    }
-
-    return res.status(200).json(slots);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ msg: err.message });
   }
-}
+
   async deleteExcecao(req, res) {
     try {
       const { data } = req.params;
