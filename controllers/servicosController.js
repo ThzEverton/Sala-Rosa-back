@@ -21,6 +21,26 @@ export default class ServicosController {
       return res.status(500).json({ msg: "Erro ao listar serviços." });
     }
   }
+async toggleAtivo(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ msg: "Id do serviço é obrigatório" });
+    }
+
+    const ok = await this.#repo.toggleAtivo(id);
+
+    if (!ok) {
+      return res.status(400).json({ msg: "Não foi possível alterar o status do serviço" });
+    }
+
+    return res.status(200).json({ msg: "Status do serviço atualizado com sucesso" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ msg: "Erro ao alterar status do serviço" });
+  }
+}
 
   // GET /servicos/visiveis?isConsultora=0|1
   async listarVisiveis(req, res) {

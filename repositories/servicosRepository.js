@@ -13,6 +13,20 @@ export default class ServicosRepository {
     const rows = await this.#banco.ExecutaComando(sql, []);
     return rows.map(r => this.toMap(r));
   }
+  async toggleAtivo(id) {
+  const sqlBusca = `select ativo from servicos where id = ? limit 1`;
+  const rows = await this.#banco.ExecutaComando(sqlBusca, [id]);
+
+  if (rows.length === 0) {
+    return false;
+  }
+
+  const ativoAtual = rows[0]["ativo"];
+  const novoAtivo = ativoAtual == 1 ? 0 : 1;
+
+  const sqlUpdate = `update servicos set ativo = ? where id = ?`;
+  return await this.#banco.ExecutaComandoNonQuery(sqlUpdate, [novoAtivo, id]);
+}
 
   async listarVisiveis(isConsultora) {
     const sql = `

@@ -606,6 +606,49 @@
         ]
       }
     },
+    "/servicos/{id}/toggle-ativo": {
+      "patch": {
+        "tags": [
+          "Serviços"
+        ],
+        "summary": "Ativa ou desativa um serviço",
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
     "/produtos/": {
       "get": {
         "tags": [
@@ -1421,10 +1464,6 @@
     },
     "/turmas/": {
       "get": {
-        "tags": [
-          "Turmas"
-        ],
-        "summary": "Lista as turmas abertas",
         "description": "",
         "parameters": [
           {
@@ -1448,18 +1487,9 @@
           "500": {
             "description": "Internal Server Error"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       },
       "post": {
-        "tags": [
-          "Turmas"
-        ],
-        "summary": "Cria uma nova turma",
         "description": "",
         "parameters": [
           {
@@ -1480,6 +1510,9 @@
           "401": {
             "description": "Unauthorized"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "404": {
             "description": "Not Found"
           },
@@ -1487,11 +1520,6 @@
             "description": "Internal Server Error"
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -1512,6 +1540,9 @@
                   },
                   "observacao": {
                     "example": "any"
+                  },
+                  "capacidadeMaxima": {
+                    "example": "any"
                   }
                 }
               }
@@ -1522,10 +1553,6 @@
     },
     "/turmas/admin": {
       "get": {
-        "tags": [
-          "Turmas"
-        ],
-        "summary": "Lista todas as turmas",
         "description": "",
         "parameters": [
           {
@@ -1549,20 +1576,83 @@
           "500": {
             "description": "Internal Server Error"
           }
-        },
-        "security": [
+        }
+      }
+    },
+    "/turmas/convite/{codigo}": {
+      "get": {
+        "description": "",
+        "parameters": [
           {
-            "bearerAuth": []
+            "name": "codigo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/turmas/convite/{codigo}/entrar": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "codigo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
       }
     },
     "/turmas/{id}": {
       "get": {
-        "tags": [
-          "Turmas"
-        ],
-        "summary": "Busca uma turma por id",
         "description": "",
         "parameters": [
           {
@@ -1594,20 +1684,165 @@
           "500": {
             "description": "Internal Server Error"
           }
-        },
-        "security": [
+        }
+      }
+    },
+    "/turmas/{id}/aprovar": {
+      "patch": {
+        "description": "",
+        "parameters": [
           {
-            "bearerAuth": []
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/turmas/{id}/recusar": {
+      "patch": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "motivo": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/turmas/{id}/editar": {
+      "patch": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "example": "any"
+                  },
+                  "horaInicio": {
+                    "example": "any"
+                  },
+                  "horaFim": {
+                    "example": "any"
+                  },
+                  "capacidadeMaxima": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/turmas/{id}/entrar": {
       "post": {
-        "tags": [
-          "Turmas"
-        ],
-        "summary": "Entra em uma turma",
         "description": "",
         "parameters": [
           {
@@ -1639,20 +1874,11 @@
           "500": {
             "description": "Internal Server Error"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/turmas/{id}/sair": {
       "delete": {
-        "tags": [
-          "Turmas"
-        ],
-        "summary": "Sai de uma turma",
         "description": "",
         "parameters": [
           {
@@ -1684,20 +1910,11 @@
           "500": {
             "description": "Internal Server Error"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/turmas/{id}/participantes/{userId}": {
       "delete": {
-        "tags": [
-          "Turmas"
-        ],
-        "summary": "Remove um participante da turma",
         "description": "",
         "parameters": [
           {
@@ -1731,18 +1948,16 @@
           "401": {
             "description": "Unauthorized"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "404": {
             "description": "Not Found"
           },
           "500": {
             "description": "Internal Server Error"
           }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        }
       }
     },
     "/vendas/_ping": {

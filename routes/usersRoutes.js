@@ -116,4 +116,5 @@ router.patch("/:id/toggle-ativo", auth.validarToken, (req, res) => {
   ctrl.toggleAtivo(req, res);
 });
 
+
 export default router;

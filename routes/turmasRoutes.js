@@ -4,84 +4,33 @@ import AuthMiddleware from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-let ctrl = new TurmasController();
-let auth = new AuthMiddleware();
+const ctrl = new TurmasController();
+const auth = new AuthMiddleware();
 
-// Listar turmas abertas
-router.get("/", auth.validarToken, (req, res) => {
-  /* #swagger.security = [{
-      "bearerAuth": []
-  }]
-  */
-  // #swagger.tags = ['Turmas']
-  // #swagger.summary = 'Lista as turmas abertas'
-  ctrl.listarAbertas(req, res);
-});
+/// Listagem
+router.get("/",       auth.validarToken, (req, res) => ctrl.listarAbertas(req, res));
+router.get("/admin",  auth.validarToken, (req, res) => ctrl.listarTodas(req, res));
 
-// Listar todas as turmas (admin/gerente)
-router.get("/admin", auth.validarToken, (req, res) => {
-  /* #swagger.security = [{
-      "bearerAuth": []
-  }]
-  */
-  // #swagger.tags = ['Turmas']
-  // #swagger.summary = 'Lista todas as turmas'
-  ctrl.listarTodas(req, res);
-});
+// ⚠️ Rotas de convite ANTES de /:id
+router.get("/convite/:codigo",         auth.validarToken, (req, res) => ctrl.obterPorCodigo(req, res));
+router.post("/convite/:codigo/entrar", auth.validarToken, (req, res) => ctrl.entrarPorCodigo(req, res));
 
-// Buscar turma por id
-router.get("/:id", auth.validarToken, (req, res) => {
-  /* #swagger.security = [{
-      "bearerAuth": []
-  }]
-  */
-  // #swagger.tags = ['Turmas']
-  // #swagger.summary = 'Busca uma turma por id'
-  ctrl.obterPorId(req, res);
-});
+// Busca por ID (depois das rotas fixas)
+router.get("/:id", auth.validarToken, (req, res) => ctrl.obterPorId(req, res));
 
-// Criar turma
-router.post("/", auth.validarToken, (req, res) => {
-  /* #swagger.security = [{
-      "bearerAuth": []
-  }]
-  */
-  // #swagger.tags = ['Turmas']
-  // #swagger.summary = 'Cria uma nova turma'
-  ctrl.criar(req, res);
-});
+// Criar
+router.post("/", auth.validarToken, (req, res) => ctrl.criar(req, res));
 
-// Cliente entra na turma
-router.post("/:id/entrar", auth.validarToken, (req, res) => {
-  /* #swagger.security = [{
-      "bearerAuth": []
-  }]
-  */
-  // #swagger.tags = ['Turmas']
-  // #swagger.summary = 'Entra em uma turma'
-  ctrl.entrar(req, res);
-});
+// Aprovação
+router.patch("/:id/aprovar", auth.validarToken, (req, res) => ctrl.aprovar(req, res));
+router.patch("/:id/recusar", auth.validarToken, (req, res) => ctrl.recusar(req, res));
+router.patch("/:id/editar",  auth.validarToken, (req, res) => ctrl.editarDataHora(req, res));
 
-// Cliente sai da turma
-router.delete("/:id/sair", auth.validarToken, (req, res) => {
-  /* #swagger.security = [{
-      "bearerAuth": []
-  }]
-  */
-  // #swagger.tags = ['Turmas']
-  // #swagger.summary = 'Sai de uma turma'
-  ctrl.sair(req, res);
-});
+// Participantes
+router.post("/:id/entrar",                  auth.validarToken, (req, res) => ctrl.entrar(req, res));
+router.delete("/:id/sair",                  auth.validarToken, (req, res) => ctrl.sair(req, res));
+router.delete("/:id/participantes/:userId", auth.validarToken, (req, res) => ctrl.removerParticipante(req, res));
 
-// Gerente remove participante
-router.delete("/:id/participantes/:userId", auth.validarToken, (req, res) => {
-  /* #swagger.security = [{
-      "bearerAuth": []
-  }]
-  */
-  // #swagger.tags = ['Turmas']
-  // #swagger.summary = 'Remove um participante da turma'
-  ctrl.removerParticipante(req, res);
-});
+
 
 export default router;

@@ -56,5 +56,10 @@ router.delete("/:id", auth.validarToken, (req, res) => {
   }] */
   ctrl.remover(req, res);
 });
+router.patch("/:id/toggle-ativo", auth.validarToken, (req, res) => {
+  // #swagger.tags = ['Serviços']
+  // #swagger.summary = 'Ativa ou desativa um serviço'
+  ctrl.toggleAtivo(req, res);
+});
 
 export default router;
