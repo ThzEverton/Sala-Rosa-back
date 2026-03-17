@@ -12,6 +12,7 @@ export default class Agendamento extends Base {
   #status;
   #observacao;
   #criadoPor;
+  #codigoConvite;
 
   get id() { return this.#id; }
   set id(v) { this.#id = v; }
@@ -40,6 +41,9 @@ export default class Agendamento extends Base {
   get criadoPor() { return this.#criadoPor; }
   set criadoPor(v) { this.#criadoPor = v; }
 
+  get codigoConvite() { return this.#codigoConvite; }
+  set codigoConvite(v) { this.#codigoConvite = v; }
+
   constructor() {
     super();
     this.#id = null;
@@ -51,5 +55,6 @@ export default class Agendamento extends Base {
     this.#status = "confirmado";
     this.#observacao = null;
     this.#criadoPor = new Usuario();
+    this.#codigoConvite = null;
   }
 }
