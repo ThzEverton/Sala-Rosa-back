@@ -1464,6 +1464,10 @@
     },
     "/turmas/": {
       "get": {
+        "tags": [
+          "Turmas"
+        ],
+        "summary": "Lista turmas abertas",
         "description": "",
         "parameters": [
           {
@@ -1487,9 +1491,18 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
+        "tags": [
+          "Turmas"
+        ],
+        "summary": "Cria uma nova turma",
         "description": "",
         "parameters": [
           {
@@ -1520,6 +1533,11 @@
             "description": "Internal Server Error"
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -1553,6 +1571,10 @@
     },
     "/turmas/admin": {
       "get": {
+        "tags": [
+          "Turmas"
+        ],
+        "summary": "Lista todas as turmas",
         "description": "",
         "parameters": [
           {
@@ -1576,11 +1598,20 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
-    "/turmas/convite/{codigo}": {
+    "/turmas/convites/{codigo}": {
       "get": {
+        "tags": [
+          "Turmas"
+        ],
+        "summary": "Obtém turma pelo código do convite",
         "description": "",
         "parameters": [
           {
@@ -1612,11 +1643,20 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
-    "/turmas/convite/{codigo}/entrar": {
+    "/turmas/convites/{codigo}/aceitar": {
       "post": {
+        "tags": [
+          "Turmas"
+        ],
+        "summary": "Entra em uma turma por código de convite",
         "description": "",
         "parameters": [
           {
@@ -1648,11 +1688,20 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/turmas/{id}": {
       "get": {
+        "tags": [
+          "Turmas"
+        ],
+        "summary": "Busca uma turma por ID",
         "description": "",
         "parameters": [
           {
@@ -1684,50 +1733,18 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
-      }
-    },
-    "/turmas/{id}/aprovar": {
-      "patch": {
-        "description": "",
-        "parameters": [
+        },
+        "security": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
+            "bearerAuth": []
           }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Turmas"
         ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Not Found"
-          },
-          "500": {
-            "description": "Internal Server Error"
-          }
-        }
-      }
-    },
-    "/turmas/{id}/recusar": {
-      "patch": {
+        "summary": "Edita os dados da turma",
         "description": "",
         "parameters": [
           {
@@ -1763,59 +1780,11 @@
             "description": "Internal Server Error"
           }
         },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "motivo": {
-                    "example": "any"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/turmas/{id}/editar": {
-      "patch": {
-        "description": "",
-        "parameters": [
+        "security": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
+            "bearerAuth": []
           }
         ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "404": {
-            "description": "Not Found"
-          },
-          "500": {
-            "description": "Internal Server Error"
-          }
-        },
         "requestBody": {
           "content": {
             "application/json": {
@@ -1841,8 +1810,12 @@
         }
       }
     },
-    "/turmas/{id}/entrar": {
+    "/turmas/{id}/participantes": {
       "post": {
+        "tags": [
+          "Turmas"
+        ],
+        "summary": "Adiciona o usuário logado como participante da turma",
         "description": "",
         "parameters": [
           {
@@ -1874,11 +1847,20 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
-    "/turmas/{id}/sair": {
+    "/turmas/{id}/participantes/me": {
       "delete": {
+        "tags": [
+          "Turmas"
+        ],
+        "summary": "Remove o usuário logado da turma",
         "description": "",
         "parameters": [
           {
@@ -1910,11 +1892,20 @@
           "500": {
             "description": "Internal Server Error"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/turmas/{id}/participantes/{userId}": {
       "delete": {
+        "tags": [
+          "Turmas"
+        ],
+        "summary": "Remove um participante da turma",
         "description": "",
         "parameters": [
           {
@@ -1956,6 +1947,79 @@
           },
           "500": {
             "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/turmas/{id}/status": {
+      "patch": {
+        "tags": [
+          "Turmas"
+        ],
+        "summary": "Altera o status da turma",
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "example": "any"
+                  },
+                  "motivo": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
           }
         }
       }

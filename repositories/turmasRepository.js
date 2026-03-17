@@ -163,32 +163,24 @@ export default class TurmasRepository {
   // ── APROVAÇÃO ─────────────────────────────────────────────────────────────
 
   async aprovarTurma(turmaId) {
-    const tx = await this.#banco.getConnectionTx();
-    try {
-      const [rows] = await tx.query(
-        `select * from agendamentos where id = ? and tipo = 'turma' limit 1`,
-        [turmaId]
-      );
+    const rows = await this.#banco.ExecutaComando(
+      `select * from agendamentos where id = ? and tipo = 'turma' limit 1`,
+      [turmaId]
+    );
 
-      if (!rows.length) throw new Error("Turma não encontrada");
+    if (!rows || !rows.length) throw new Error("Turma não encontrada");
 
-      if (rows[0].status !== "pendente_aprovacao") {
-        throw new Error(`Turma não pode ser aprovada — status atual: ${rows[0].status}`);
-      }
-
-      await tx.query(
-        `update agendamentos set status = 'aprovado' where id = ?`,
-        [turmaId]
-      );
-
-      await tx.commit();
-      return true;
-    } catch (e) {
-      await tx.rollback();
-      throw e;
-    } finally {
-      if (tx.release) tx.release();
+    const statusPermitidos = ['pendente_aprovacao', 'pendente'];
+    if (!statusPermitidos.includes(rows[0].status)) {
+      throw new Error(`Turma não pode ser aprovada — status atual: ${rows[0].status}`);
     }
+
+    await this.#banco.ExecutaComandoNonQuery(
+      `update agendamentos set status = 'aprovado' where id = ?`,
+      [turmaId]
+    );
+
+    return true;
   }
 
   async recusarTurma(turmaId, motivo = null) {
@@ -238,11 +230,11 @@ export default class TurmasRepository {
       }
 
       const campos = [];
-      const vals   = [];
+      const vals = [];
 
-      if (data)             { campos.push("data = ?");              vals.push(data); }
-      if (horaInicio)       { campos.push("hora_inicio = ?");       vals.push(horaInicio); }
-      if (horaFim)          { campos.push("hora_fim = ?");          vals.push(horaFim); }
+      if (data) { campos.push("data = ?"); vals.push(data); }
+      if (horaInicio) { campos.push("hora_inicio = ?"); vals.push(horaInicio); }
+      if (horaFim) { campos.push("hora_fim = ?"); vals.push(horaFim); }
       if (capacidadeMaxima) { campos.push("capacidade_maxima = ?"); vals.push(Number(capacidadeMaxima)); }
 
       if (!campos.length) throw new Error("Nenhum campo enviado para atualizar");
@@ -265,7 +257,7 @@ export default class TurmasRepository {
   }
 
   // ── PARTICIPANTES ─────────────────────────────────────────────────────────
-
+  
   async entrarNaTurma(agendamentoId, userId, nomeUser) {
     const tx = await this.#banco.getConnectionTx();
     try {
@@ -312,8 +304,8 @@ export default class TurmasRepository {
         [ag.servico_id]
       );
 
-      const serv     = servRows[0] ?? null;
-      const preco    = serv ? Number(serv.preco) : 0;
+      const serv = servRows[0] ?? null;
+      const preco = serv ? Number(serv.preco) : 0;
       const nomeServ = serv ? serv.nome : "Serviço";
 
       await tx.query(
@@ -377,8 +369,8 @@ export default class TurmasRepository {
         [ag.servico_id]
       );
 
-      const serv     = servRows[0] ?? null;
-      const preco    = serv ? Number(serv.preco) : 0;
+      const serv = servRows[0] ?? null;
+      const preco = serv ? Number(serv.preco) : 0;
       const nomeServ = serv ? serv.nome : "Serviço";
 
       await tx.query(
@@ -462,22 +454,22 @@ export default class TurmasRepository {
 
   toMapAgendamento(row) {
     let a = new Agendamento();
-    a.id   = row["id"];
+    a.id = row["id"];
     a.tipo = row["tipo"];
 
-    a.servico      = new Servico();
-    a.servico.id   = row["servico_id"];
+    a.servico = new Servico();
+    a.servico.id = row["servico_id"];
     a.servico.nome = row["servico_nome"];
 
-    a.data             = row["data"];
-    a.horaInicio       = row["hora_inicio"];
-    a.horaFim          = row["hora_fim"];
-    a.status           = row["status"];
-    a.observacao       = row["observacao"];
+    a.data = row["data"];
+    a.horaInicio = row["hora_inicio"];
+    a.horaFim = row["hora_fim"];
+    a.status = row["status"];
+    a.observacao = row["observacao"];
     a.capacidadeMaxima = Number(row["capacidade_maxima"] ?? 5);
-    a.codigoConvite    = row["codigo_convite"] ?? null;
+    a.codigoConvite = row["codigo_convite"] ?? null;
 
-    a.criadoPor    = new Usuario();
+    a.criadoPor = new Usuario();
     a.criadoPor.id = row["criado_por_user_id"];
 
     a.qtdParticipantes = Number(row["qtd_participantes"] ?? 0);

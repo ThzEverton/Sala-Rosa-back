@@ -183,7 +183,36 @@ export default class TurmasController {
       return res.status(500).json({ msg: error.message || "Erro ao entrar na turma" });
     }
   }
+async alterarStatus(req, res) {
+  try {
+    if (!this.#isGerente(req)) {
+      return res.status(403).json({ msg: "Apenas gerentes podem alterar o status da turma" });
+    }
 
+    const { id } = req.params;
+    const { status, motivo } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ msg: "status é obrigatório" });
+    }
+
+    if (status === 'aprovado') {
+      await this.#repo.aprovarTurma(Number(id));
+      return res.status(200).json({ msg: "Turma aprovada com sucesso" });
+    }
+
+    if (status === 'recusado') {
+      await this.#repo.recusarTurma(Number(id), motivo ?? null);
+      return res.status(200).json({ msg: "Turma recusada" });
+    }
+
+    return res.status(400).json({ msg: `Status '${status}' não reconhecido` });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ msg: error.message || "Erro ao alterar status da turma" });
+  }
+}
   async entrarPorCodigo(req, res) {
     try {
       if (!req.usuarioLogado?.id) {
