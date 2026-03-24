@@ -58,17 +58,22 @@ export default class AgendaRepository {
   }
 
   async salvarExcecao(ent) {
-    const sql = `
-      insert into excecoes_dia (data, hora_inicio_excecao, hora_fim_excecao)
-      values (?, ?, ?)
-      on duplicate key update
-        hora_inicio_excecao = values(hora_inicio_excecao),
-        hora_fim_excecao = values(hora_fim_excecao)
-    `;
+  const sql = `
+    INSERT INTO excecoes_dia 
+      (data, hora_inicio_excecao, hora_fim_excecao, recorrente, dias_semana)
+    VALUES (?, ?, ?, ?, ?)
+  `;
 
-    const vals = [ent.data, ent.horaInicioExcecao, ent.horaFimExcecao];
-    return await this.#banco.ExecutaComandoNonQuery(sql, vals);
-  }
+  const vals = [
+    ent.data,
+    ent.horaInicioExcecao,
+    ent.horaFimExcecao,
+    ent.recorrente,
+    ent.diasSemana
+  ];
+
+  return await this.#banco.ExecutaComandoNonQuery(sql, vals);
+}
 
   async removerExcecao(data) {
     const sql = `delete from excecoes_dia where data = ?`;
@@ -109,6 +114,63 @@ export default class AgendaRepository {
     await this.#banco.ExecutaComandoNonQuery(insSql, [data, slot]);
     return true;
   }
+  async obterExcecaoAplicavel(data) {
+  const [ano, mes, dia] = String(data).slice(0, 10).split("-").map(Number);
+  const d = new Date(ano, mes - 1, dia);
+  const diaSemana = d.getDay(); // 0 = domingo
+
+  const sql = `
+    SELECT *
+    FROM excecoes_dia
+    WHERE
+      data = ?
+      OR (
+        recorrente = 1
+        AND FIND_IN_SET(?, dias_semana)
+      )
+    ORDER BY created_at DESC
+    LIMIT 1
+  `;
+
+  const rows = await this.#banco.ExecutaComando(sql, [data, diaSemana]);
+
+  if (rows.length === 0) return null;
+
+  return this.toMapExcecao(rows[0]);
+}
+
+  async toggleAtivoExcecao(id) {
+  const sql = `
+    UPDATE excecoes_dia
+    SET ativo = NOT ativo
+    WHERE id = ?
+  `;
+
+  return await this.#banco.ExecutaComandoNonQuery(sql, [id]);
+}
+
+  async obterExcecaoAplicavel(data) {
+  const sql = `
+    SELECT *
+    FROM excecoes_dia
+    WHERE ativo = 1
+    AND (
+      data = ?
+      OR (
+        recorrente = 1
+        AND FIND_IN_SET(DAYOFWEEK(?) - 1, dias_semana)
+      )
+    )
+    ORDER BY id DESC
+    LIMIT 1
+  `;
+
+  const rows = await this.#banco.ExecutaComando(sql, [data, data]);
+
+  return rows.length ? rows[0] : null;
+}
+
+
 
   toMapConfig(row) {
     let c = new HorarioConfig();
@@ -128,14 +190,15 @@ export default class AgendaRepository {
 
     return c;
   }
-
-  toMapExcecao(row) {
-    let e = new ExcecaoDia();
-    e.data = row["data"];
-    e.horaInicioExcecao = row["hora_inicio_excecao"];
-    e.horaFimExcecao = row["hora_fim_excecao"];
-    return e;
-  }
+toMapExcecao(row) {
+  let e = new ExcecaoDia();
+  e.data = row["data"];
+  e.horaInicioExcecao = row["hora_inicio_excecao"];
+  e.horaFimExcecao = row["hora_fim_excecao"];
+  e.recorrente = row["recorrente"];
+  e.diasSemana = row["dias_semana"];
+  return e;
+}
 
   toMapBloqueio(row) {
     let b = new BloqueioSlot();

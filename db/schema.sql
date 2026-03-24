@@ -70,16 +70,21 @@ CREATE TABLE horario_config (
 ) ENGINE=InnoDB;
 
 -- =========================
--- EXCECOES_DIA
+-- EXCECOES_DIA 
 -- =========================
 CREATE TABLE excecoes_dia (
   id INT NOT NULL AUTO_INCREMENT,
-  data DATE NOT NULL,
+  data DATE NULL,
   hora_inicio_excecao TIME NULL,
   hora_fim_excecao TIME NULL,
-  PRIMARY KEY (id),
-  UNIQUE KEY uq_exc_data (data)
-) ENGINE=InnoDB;
+
+  recorrente TINYINT(1) DEFAULT 0,
+  dias_semana VARCHAR(20) NULL,
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id)
+) ENGINE=InnoDB;;
 
 -- =========================
 -- BLOQUEIOS_SLOT

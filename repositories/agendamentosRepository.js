@@ -89,7 +89,15 @@ export default class AgendamentosRepository {
 
   async criar({ servicoId, data, horaInicio, observacao, userId, nomeUser }) {
     const tx = await this.#banco.getConnectionTx();
+    const [db] = await tx.query('SELECT DATABASE() as db');
+console.log('BANCO ATUAL:', db);
 
+
+const [rows] = await tx.query('select id, nome, ativo from servicos');
+console.log(rows);
+
+const [count] = await tx.query('SELECT COUNT(*) as total FROM servicos');
+console.log('TOTAL DE SERVICOS:', count);
     try {
       const [servRows] = await tx.query(
         `select * from servicos where id = ? and ativo = 1 limit 1`,

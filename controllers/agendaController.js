@@ -90,18 +90,32 @@ export default class AgendaController {
 
   async postExcecao(req, res) {
     try {
-      const { data, horaInicioExcecao, horaFimExcecao } = req.body;
+      const {
+        data,
+        horaInicioExcecao,
+        horaFimExcecao,
+        recorrente,
+        diasSemana
+      } = req.body;
 
-      if (!data || !horaInicioExcecao || !horaFimExcecao) {
+      if (!horaInicioExcecao || !horaFimExcecao) {
         return res.status(400).json({
-          msg: "data, horaInicioExcecao e horaFimExcecao são obrigatórios"
+          msg: "horaInicioExcecao e horaFimExcecao são obrigatórios"
+        });
+      }
+
+      if (recorrente && (!diasSemana || diasSemana.length === 0)) {
+        return res.status(400).json({
+          msg: "diasSemana é obrigatório para recorrência"
         });
       }
 
       const ent = {
-        data,
+        data: data || null,
         horaInicioExcecao,
-        horaFimExcecao
+        horaFimExcecao,
+        recorrente: recorrente ? 1 : 0,
+        diasSemana: diasSemana ? diasSemana.join(",") : null
       };
 
       const ok = await this.#repo.salvarExcecao(ent);
@@ -116,85 +130,92 @@ export default class AgendaController {
       return res.status(500).json({ msg: "Erro ao salvar exceção" });
     }
   }
-
   async obterSlots(req, res) {
-    try {
-      const data = req.query.date;
+  try {
+    const data = req.query.date;
 
-      if (!data) {
-        return res.status(400).json({ msg: "Data é obrigatória" });
-      }
+    if (!data) {
+      return res.status(400).json({ msg: "Data é obrigatória" });
+    }
 
-      const config = await this.#repo.obterConfig();
-      const excecao = await this.#repo.obterExcecaoPorData(data);
-      const bloqueios = await this.#repo.listarBloqueios();
+    const config = await this.#repo.obterConfig();
+    const bloqueios = await this.#repo.listarBloqueios();
+    const todasExcecoes = await this.#repo.listarExcecoes(); // todas exceções
 
-      if (!config) {
-        return res.status(404).json({ msg: "Configuração de agenda não encontrada" });
-      }
+    if (!config) {
+      return res.status(404).json({ msg: "Configuração de agenda não encontrada" });
+    }
 
-      let inicio = null;
-      let fim = null;
-      const duracao = Number(config.duracaoSlotMinutos);
+    let inicio = null;
+    let fim = null;
+    const duracao = Number(config.duracaoSlotMinutos);
 
-      if (excecao) {
-        inicio = String(excecao.horaInicioExcecao).slice(0, 8);
-        fim = String(excecao.horaFimExcecao).slice(0, 8);
-      } else {
-        const tipoDia = this.getTipoDia(data);
+    // Determina tipo de dia (semana/fim de semana)
+    const tipoDia = this.getTipoDia(data);
 
-        if (tipoDia === "fim_semana") {
-          if (!config.horaInicioFimSemana || !config.horaFimFimSemana) {
-            return res.status(200).json([]);
-          }
-
-          inicio = String(config.horaInicioFimSemana).slice(0, 8);
-          fim = String(config.horaFimFimSemana).slice(0, 8);
-        } else {
-          if (!config.horaInicioSemana || !config.horaFimSemana) {
-            return res.status(200).json([]);
-          }
-
-          inicio = String(config.horaInicioSemana).slice(0, 8);
-          fim = String(config.horaFimSemana).slice(0, 8);
-        }
-      }
-
-      if (!inicio || !fim) {
+    if (tipoDia === "fim_semana") {
+      if (!config.horaInicioFimSemana || !config.horaFimFimSemana) {
         return res.status(200).json([]);
       }
+      inicio = String(config.horaInicioFimSemana).slice(0, 8);
+      fim = String(config.horaFimFimSemana).slice(0, 8);
+    } else {
+      if (!config.horaInicioSemana || !config.horaFimSemana) {
+        return res.status(200).json([]);
+      }
+      inicio = String(config.horaInicioSemana).slice(0, 8);
+      fim = String(config.horaFimSemana).slice(0, 8);
+    }
 
-      const slots = [];
+    if (!inicio || !fim) return res.status(200).json([]);
 
-      let atual = new Date(`1970-01-01T${inicio}`);
-      const fimDate = new Date(`1970-01-01T${fim}`);
+    const slots = [];
+    let atual = new Date(`1970-01-01T${inicio}`);
+    const fimDate = new Date(`1970-01-01T${fim}`);
 
-      while (atual < fimDate) {
-        const hora = atual.toTimeString().slice(0, 8);
+    const diaSemana = new Date(data).getDay(); // 0 = domingo, 6 = sábado
 
-        const bloqueado = bloqueios.some(
-          (b) =>
-            String(b.data).slice(0, 10) === data &&
-            String(b.slot).slice(0, 8) === hora
-        );
+    // Filtra as exceções aplicáveis (do dia ou recorrentes do dia da semana)
+    const excecoesAplicaveis = todasExcecoes.filter(ex => {
+      if (ex.recorrente) {
+        const dias = ex.diasSemana ? ex.diasSemana.split(',').map(Number) : [];
+        return dias.includes(diaSemana);
+      }
+      return ex.data === data;
+    });
 
+    while (atual < fimDate) {
+      const hora = atual.toTimeString().slice(0, 8);
+
+      // Verifica se está dentro de alguma exceção
+      const dentroDeAlgumaExcecao = excecoesAplicaveis.some(ex => {
+        const inicioEx = ex.horaInicioExcecao?.slice(0, 8);
+        const fimEx = ex.horaFimExcecao?.slice(0, 8);
+        return inicioEx && fimEx && hora >= inicioEx && hora < fimEx;
+      });
+
+      const bloqueado = bloqueios.some(
+        b => String(b.data).slice(0, 10) === data && String(b.slot).slice(0, 8) === hora
+      );
+
+      if (!dentroDeAlgumaExcecao) {
         slots.push({
           slot: hora,
           bloqueado,
           ocupado: false,
           status: bloqueado ? "bloqueado" : "disponivel"
         });
-
-        atual.setMinutes(atual.getMinutes() + duracao);
       }
 
-      return res.status(200).json(slots);
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ msg: err.message });
+      atual.setMinutes(atual.getMinutes() + duracao);
     }
-  }
 
+    return res.status(200).json(slots);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ msg: err.message });
+  }
+}
   async deleteExcecao(req, res) {
     try {
       const { data } = req.params;
@@ -208,12 +229,14 @@ export default class AgendaController {
       if (!ok) {
         return res.status(400).json({ msg: "Não foi possível remover a exceção" });
       }
-
       return res.status(200).json({ msg: "Exceção removida com sucesso" });
     } catch (error) {
       console.error(error);
       return res.status(500).json({ msg: "Erro ao remover exceção" });
+
     }
+
+
   }
 
   async getBloqueios(req, res) {
@@ -243,6 +266,27 @@ export default class AgendaController {
     } catch (error) {
       console.error(error);
       return res.status(500).json({ msg: "Erro ao alternar bloqueio" });
+    }
+  }
+
+  async toggleExcecao(req, res) {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        return res.status(400).json({ msg: "ID é obrigatório" });
+      }
+
+      const ok = await this.#repo.toggleAtivoExcecao(id);
+
+      if (!ok) {
+        return res.status(400).json({ msg: "Não foi possível alterar a exceção" });
+      }
+
+      return res.status(200).json({ msg: "Status da exceção atualizado" });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ msg: "Erro ao atualizar exceção" });
     }
   }
 }

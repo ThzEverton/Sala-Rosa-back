@@ -94,5 +94,15 @@ router.post("/bloqueios/toggle", auth.validarToken, (req, res) => {
     // #swagger.summary = 'Bloqueia ou desbloqueia um slot de horário'
     ctrl.postToggleBloqueio(req, res);
 });
+router.patch("/excecoes/:id/toggle", auth.validarToken, (req, res) => {
+    /* #swagger.security = [{
+        "bearerAuth": []
+    }]
+    */
+    // #swagger.tags = ['Agenda']
+    // #swagger.summary = 'uma execessao'
+
+  ctrl.toggleExcecao(req, res);
+});
 
 export default router;
