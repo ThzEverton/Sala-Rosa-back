@@ -52,7 +52,7 @@ router.post("/excecoes", auth.validarToken, (req, res) => {
 });
 
 // Remover exceção por data
-router.delete("/excecoes/:data", auth.validarToken, (req, res) => {
+router.delete("/excecoes/:id", auth.validarToken, (req, res) => {
     /* #swagger.security = [{
         "bearerAuth": []
     }]

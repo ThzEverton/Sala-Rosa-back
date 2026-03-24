@@ -1084,7 +1084,7 @@
         }
       }
     },
-    "/agenda/excecoes/{data}": {
+    "/agenda/excecoes/{id}": {
       "delete": {
         "tags": [
           "Agenda"
@@ -1093,7 +1093,7 @@
         "description": "",
         "parameters": [
           {
-            "name": "data",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -1321,21 +1321,115 @@
         ]
       }
     },
-    "/agendamentos/": {
+    "/agendamentos/config": {
       "get": {
         "tags": [
-          "Agendamentos"
+          "Agenda"
         ],
-        "summary": "Lista os agendamentos",
+        "summary": "Retorna a configuração de horário padrão da agenda",
         "description": "",
         "parameters": [
           {
-            "name": "data",
-            "in": "query",
+            "name": "authorization",
+            "in": "header",
             "schema": {
               "type": "string"
             }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Agenda"
+        ],
+        "summary": "Atualiza a configuração de horário padrão da agenda",
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "horaInicioSemana": {
+                    "example": "any"
+                  },
+                  "horaFimSemana": {
+                    "example": "any"
+                  },
+                  "horaInicioFimSemana": {
+                    "example": "any"
+                  },
+                  "horaFimFimSemana": {
+                    "example": "any"
+                  },
+                  "duracaoSlotMinutos": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agendamentos/excecoes": {
+      "get": {
+        "tags": [
+          "Agenda"
+        ],
+        "summary": "Lista as exceções de horários por dia",
+        "description": "",
+        "parameters": [
           {
             "name": "authorization",
             "in": "header",
@@ -1366,9 +1460,9 @@
       },
       "post": {
         "tags": [
-          "Agendamentos"
+          "Agenda"
         ],
-        "summary": "Cria um agendamento individual",
+        "summary": "Cria uma exceção de horário para um dia específico ou recorrente",
         "description": "",
         "parameters": [
           {
@@ -1407,16 +1501,19 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "servicoId": {
-                    "example": "any"
-                  },
                   "data": {
                     "example": "any"
                   },
-                  "horaInicio": {
+                  "horaInicioExcecao": {
                     "example": "any"
                   },
-                  "observacao": {
+                  "horaFimExcecao": {
+                    "example": "any"
+                  },
+                  "recorrente": {
+                    "example": "any"
+                  },
+                  "diasSemana": {
                     "example": "any"
                   }
                 }
@@ -1426,12 +1523,12 @@
         }
       }
     },
-    "/agendamentos/{id}": {
-      "get": {
+    "/agendamentos/excecoes/{id}": {
+      "delete": {
         "tags": [
-          "Agendamentos"
+          "Agenda"
         ],
-        "summary": "Busca um agendamento por id",
+        "summary": "Remove uma exceção de horário pelo ID",
         "description": "",
         "parameters": [
           {
@@ -1442,6 +1539,46 @@
               "type": "string"
             }
           },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/agendamentos/bloqueios": {
+      "get": {
+        "tags": [
+          "Agenda"
+        ],
+        "summary": "Lista os slots bloqueados",
+        "description": "",
+        "parameters": [
           {
             "name": "authorization",
             "in": "header",
@@ -1471,12 +1608,116 @@
         ]
       }
     },
-    "/agendamentos/{id}/cancelar": {
+    "/agendamentos/slots": {
+      "get": {
+        "tags": [
+          "Agenda"
+        ],
+        "summary": "Lista os slots disponíveis de um dia",
+        "description": "",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/agendamentos/bloqueios/toggle": {
+      "post": {
+        "tags": [
+          "Agenda"
+        ],
+        "summary": "Bloqueia ou desbloqueia um slot de horário",
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "example": "any"
+                  },
+                  "slot": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agendamentos/excecoes/{id}/toggle": {
       "patch": {
         "tags": [
-          "Agendamentos"
+          "Agenda"
         ],
-        "summary": "Cancela um agendamento",
+        "summary": "Ativa ou desativa uma exceção recorrente",
         "description": "",
         "parameters": [
           {
@@ -1498,6 +1739,9 @@
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
           },
           "401": {
             "description": "Unauthorized"

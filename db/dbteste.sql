@@ -4,16 +4,17 @@ USE salarosa;
 -- USERS
 -- =========================
 INSERT INTO users
-(nome, email, telefone, data_nascimento, perfil, is_consultora, ativo, senha)
+(id, nome, email, telefone, data_nascimento, perfil, is_consultora, ativo, senha)
 VALUES
-('Mariana Oliveira', 'mariana@salarosa.com', '18999990002', '1992-08-15', 'cliente', 1, 1, '123456'),
-('Camila Souza', 'camila@salarosa.com', '18999990003', '1995-03-22', 'cliente', 1, 1, '123456'),
-('Fernanda Lima', 'fernanda@salarosa.com', '18999990004', '1988-11-02', 'cliente', 0, 1, '123456'),
-('Juliana Martins', 'juliana@salarosa.com', '18999990005', '1997-01-18', 'cliente', 0, 1, '123456'),
-('Patricia Alves', 'patricia@salarosa.com', '18999990006', '1991-06-30', 'cliente', 0, 1, '123456'),
-('Bianca Rocha', 'bianca@salarosa.com', '18999990007', '1994-09-12', 'cliente', 0, 1, '123456'),
-('Tatiane Costa', 'tatiane@salarosa.com', '18999990008', '1989-12-05', 'cliente', 1, 1, '123456');
+(1, 'Administrador', 'admin@salarosa.com', '18999990001', '1985-01-01', 'gerente', 0, 1, '123456'),
 
+(2, 'Mariana Oliveira', 'mariana@salarosa.com', '18999990002', '1992-08-15', 'cliente', 1, 1, '123456'),
+(3, 'Camila Souza', 'camila@salarosa.com', '18999990003', '1995-03-22', 'cliente', 1, 1, '123456'),
+(4, 'Fernanda Lima', 'fernanda@salarosa.com', '18999990004', '1988-11-02', 'cliente', 0, 1, '123456'),
+(5, 'Juliana Martins', 'juliana@salarosa.com', '18999990005', '1997-01-18', 'cliente', 0, 1, '123456'),
+(6, 'Patricia Alves', 'patricia@salarosa.com', '18999990006', '1991-06-30', 'cliente', 0, 1, '123456'),
+(7, 'Bianca Rocha', 'bianca@salarosa.com', '18999990007', '1994-09-12', 'cliente', 0, 1, '123456'),
+(8, 'Tatiane Costa', 'tatiane@salarosa.com', '18999990008', '1989-12-05', 'cliente', 1, 1, '123456');
 -- =========================
 -- SERVICOS
 -- =========================

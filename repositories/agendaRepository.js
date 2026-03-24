@@ -13,9 +13,7 @@ export default class AgendaRepository {
   async obterConfig() {
     const sql = `select * from horario_config where id = 1 limit 1`;
     const rows = await this.#banco.ExecutaComando(sql, []);
-
     if (rows.length === 0) return null;
-
     return this.toMapConfig(rows[0]);
   }
 
@@ -36,64 +34,67 @@ export default class AgendaRepository {
       ent.horaFimSemana,
       ent.horaInicioFimSemana,
       ent.horaFimFimSemana,
-      ent.duracaoSlotMinutos
+      ent.duracaoSlotMinutos,
     ];
 
     return await this.#banco.ExecutaComandoNonQuery(sql, vals);
   }
 
   async listarExcecoes() {
-    const sql = `select * from excecoes_dia order by data desc`;
+    const sql = `select * from excecoes_dia order by created_at desc`;
     const rows = await this.#banco.ExecutaComando(sql, []);
-    return rows.map(r => this.toMapExcecao(r));
+    return rows.map((r) => this.toMapExcecao(r));
   }
 
   async obterExcecaoPorData(data) {
     const sql = `select * from excecoes_dia where data = ? limit 1`;
     const rows = await this.#banco.ExecutaComando(sql, [data]);
-
     if (rows.length === 0) return null;
-
     return this.toMapExcecao(rows[0]);
   }
 
   async salvarExcecao(ent) {
-  const sql = `
-    INSERT INTO excecoes_dia 
-      (data, hora_inicio_excecao, hora_fim_excecao, recorrente, dias_semana)
-    VALUES (?, ?, ?, ?, ?)
-  `;
+    const sql = `
+      INSERT INTO excecoes_dia 
+        (data, hora_inicio_excecao, hora_fim_excecao, recorrente, dias_semana)
+      VALUES (?, ?, ?, ?, ?)
+    `;
 
-  const vals = [
-    ent.data,
-    ent.horaInicioExcecao,
-    ent.horaFimExcecao,
-    ent.recorrente,
-    ent.diasSemana
-  ];
+    const vals = [
+      ent.data,
+      ent.horaInicioExcecao,
+      ent.horaFimExcecao,
+      ent.recorrente,
+      ent.diasSemana,
+    ];
 
-  return await this.#banco.ExecutaComandoNonQuery(sql, vals);
-}
+    return await this.#banco.ExecutaComandoNonQuery(sql, vals);
+  }
 
+  // ✅ CORREÇÃO: remove por data (legado, mantido para compatibilidade)
   async removerExcecao(data) {
     const sql = `delete from excecoes_dia where data = ?`;
     return await this.#banco.ExecutaComandoNonQuery(sql, [data]);
   }
 
+  // ✅ NOVO: remove por ID — funciona para data fixa E recorrente
+  async removerExcecaoPorId(id) {
+    const sql = `delete from excecoes_dia where id = ?`;
+    return await this.#banco.ExecutaComandoNonQuery(sql, [id]);
+  }
+
   async listarBloqueios() {
     const sql = `select * from bloqueios_slot order by data desc, slot asc`;
     const rows = await this.#banco.ExecutaComando(sql, []);
-    return rows.map(r => this.toMapBloqueio(r));
+    return rows.map((r) => this.toMapBloqueio(r));
   }
 
   async existeBloqueio(data, slot) {
     const sql = `
-      select id, data, slot
-      from bloqueios_slot
+      select id from bloqueios_slot
       where data = ? and slot = ?
       limit 1
     `;
-
     const rows = await this.#banco.ExecutaComando(sql, [data, slot]);
     return rows.length > 0;
   }
@@ -105,100 +106,50 @@ export default class AgendaRepository {
     const existe = await this.existeBloqueio(data, slot);
 
     if (existe) {
-      const delSql = `delete from bloqueios_slot where data = ? and slot = ?`;
-      await this.#banco.ExecutaComandoNonQuery(delSql, [data, slot]);
+      await this.#banco.ExecutaComandoNonQuery(
+        `delete from bloqueios_slot where data = ? and slot = ?`,
+        [data, slot]
+      );
       return false;
     }
 
-    const insSql = `insert into bloqueios_slot (data, slot) values (?, ?)`;
-    await this.#banco.ExecutaComandoNonQuery(insSql, [data, slot]);
+    await this.#banco.ExecutaComandoNonQuery(
+      `insert into bloqueios_slot (data, slot) values (?, ?)`,
+      [data, slot]
+    );
     return true;
   }
-  async obterExcecaoAplicavel(data) {
-  const [ano, mes, dia] = String(data).slice(0, 10).split("-").map(Number);
-  const d = new Date(ano, mes - 1, dia);
-  const diaSemana = d.getDay(); // 0 = domingo
-
-  const sql = `
-    SELECT *
-    FROM excecoes_dia
-    WHERE
-      data = ?
-      OR (
-        recorrente = 1
-        AND FIND_IN_SET(?, dias_semana)
-      )
-    ORDER BY created_at DESC
-    LIMIT 1
-  `;
-
-  const rows = await this.#banco.ExecutaComando(sql, [data, diaSemana]);
-
-  if (rows.length === 0) return null;
-
-  return this.toMapExcecao(rows[0]);
-}
 
   async toggleAtivoExcecao(id) {
-  const sql = `
-    UPDATE excecoes_dia
-    SET ativo = NOT ativo
-    WHERE id = ?
-  `;
-
-  return await this.#banco.ExecutaComandoNonQuery(sql, [id]);
-}
-
-  async obterExcecaoAplicavel(data) {
-  const sql = `
-    SELECT *
-    FROM excecoes_dia
-    WHERE ativo = 1
-    AND (
-      data = ?
-      OR (
-        recorrente = 1
-        AND FIND_IN_SET(DAYOFWEEK(?) - 1, dias_semana)
-      )
-    )
-    ORDER BY id DESC
-    LIMIT 1
-  `;
-
-  const rows = await this.#banco.ExecutaComando(sql, [data, data]);
-
-  return rows.length ? rows[0] : null;
-}
-
-
+    const sql = `UPDATE excecoes_dia SET ativo = NOT ativo WHERE id = ?`;
+    return await this.#banco.ExecutaComandoNonQuery(sql, [id]);
+  }
 
   toMapConfig(row) {
     let c = new HorarioConfig();
-
     c.id = row["id"];
-
     c.horaInicioPadrao = row["hora_inicio_padrao"];
     c.horaFimPadrao = row["hora_fim_padrao"];
-
     c.horaInicioSemana = row["hora_inicio_semana"];
     c.horaFimSemana = row["hora_fim_semana"];
-
     c.horaInicioFimSemana = row["hora_inicio_fim_semana"];
     c.horaFimFimSemana = row["hora_fim_fim_semana"];
-
     c.duracaoSlotMinutos = row["duracao_slot_minutos"];
-
     return c;
   }
-toMapExcecao(row) {
-  let e = new ExcecaoDia();
-  e.data = row["data"];
-  e.horaInicioExcecao = row["hora_inicio_excecao"];
-  e.horaFimExcecao = row["hora_fim_excecao"];
-  e.recorrente = row["recorrente"];
-  e.diasSemana = row["dias_semana"];
-  return e;
-}
+
+  // ✅ CORREÇÃO: mapeia id e ativo — necessários para toggle e delete
+  toMapExcecao(row) {
+    let e = new ExcecaoDia();
+    e.id = row["id"];
+    e.data = row["data"];
+    e.horaInicioExcecao = row["hora_inicio_excecao"];
+    e.horaFimExcecao = row["hora_fim_excecao"];
+    e.recorrente = row["recorrente"];
+    e.diasSemana = row["dias_semana"];
+    e.ativo = row["ativo"] ?? 1; // padrão ativo caso coluna não exista ainda
+    return e;
+  }
 
   toMapBloqueio(row) {
     let b = new BloqueioSlot();
