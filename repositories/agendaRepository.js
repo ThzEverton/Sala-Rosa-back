@@ -53,6 +53,17 @@ export default class AgendaRepository {
     return this.toMapExcecao(rows[0]);
   }
 
+    async listarSlotsOcupadosPorData(data) {
+  const sql = `
+    select data, slot, status
+    from agendamento_slots
+    where data = ?
+      and lower(trim(status)) in ('ativo', 'agendado', 'confirmado')
+  `;
+
+  return await this.#banco.ExecutaComando(sql, [String(data).slice(0, 10)]);
+}
+
   async salvarExcecao(ent) {
     const sql = `
       INSERT INTO excecoes_dia 
@@ -77,7 +88,7 @@ export default class AgendaRepository {
     return await this.#banco.ExecutaComandoNonQuery(sql, [data]);
   }
 
-  // ✅ NOVO: remove por ID — funciona para data fixa E recorrente
+ 
   async removerExcecaoPorId(id) {
     const sql = `delete from excecoes_dia where id = ?`;
     return await this.#banco.ExecutaComandoNonQuery(sql, [id]);
@@ -138,7 +149,7 @@ export default class AgendaRepository {
     return c;
   }
 
-  // ✅ CORREÇÃO: mapeia id e ativo — necessários para toggle e delete
+  
   toMapExcecao(row) {
     let e = new ExcecaoDia();
     e.id = row["id"];

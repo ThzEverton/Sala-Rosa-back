@@ -10,7 +10,37 @@ export default class TurmasRepository {
     this.#banco = new Database();
   }
 
-  // ── LISTAGEM ──────────────────────────────────────────────────────────────
+ #normalizeRows(result) {
+    if (Array.isArray(result?.[0])) {
+      return result[0];
+    }
+
+    if (Array.isArray(result)) {
+      return result;
+    }
+
+    return [];
+  }
+
+  #toMin(hora) {
+    if (!hora) return 0;
+    const [h, m] = String(hora).slice(0, 5).split(":").map(Number);
+    return (h * 60) + m;
+  }
+
+  #gerarSlots(horaInicio, horaFim, duracaoMinutos) {
+    const slots = [];
+
+    let atual = new Date(`1970-01-01T${String(horaInicio).slice(0, 8)}`);
+    const fim = new Date(`1970-01-01T${String(horaFim).slice(0, 8)}`);
+
+    while (atual < fim) {
+      slots.push(atual.toTimeString().slice(0, 8));
+      atual.setMinutes(atual.getMinutes() + Number(duracaoMinutos));
+    }
+
+    return slots;
+  }
 
   async listarTurmasAbertas() {
     const sql = `
@@ -117,95 +147,231 @@ export default class TurmasRepository {
     return await this.#banco.ExecutaComando(sql, [turmaId]);
   }
 
-  // ── CRIAR ─────────────────────────────────────────────────────────────────
+ async criarTurma(ent) {
+    const tx = await this.#banco.getConnectionTx();
 
-  async criarTurma(ent) {
     const gerarCodigo = () =>
       Math.random().toString(36).substring(2, 10).toUpperCase();
 
-    let codigo = null;
-    let tentativas = 0;
-
-    while (!codigo && tentativas < 10) {
-      const candidato = gerarCodigo();
-      const existente = await this.#banco.ExecutaComando(
-        `select 1 from agendamentos where codigo_convite = ? limit 1`,
-        [candidato]
-      );
-      if (!existente.length) codigo = candidato;
-      tentativas++;
-    }
-
-    if (!codigo) throw new Error("Não foi possível gerar um código único para a turma");
-
-    const sql = `
-      insert into agendamentos
-      (tipo, servico_id, data, hora_inicio, hora_fim, status, observacao, criado_por_user_id, capacidade_maxima, codigo_convite)
-      values (?, ?, ?, ?, ?, 'pendente_aprovacao', ?, ?, ?, ?)
-    `;
-
-    const vals = [
-      "turma",
-      ent.servico.id,
-      ent.data,
-      ent.horaInicio,
-      ent.horaFim,
-      ent.observacao ?? null,
-      ent.criadoPor?.id ?? null,
-      ent.capacidadeMaxima ?? 5,
-      codigo
-    ];
-
-    const result = await this.#banco.ExecutaComandoNonQuery(sql, vals);
-    return { insertId: result.insertId ?? result, codigoConvite: codigo };
-  }
-
-  // ── APROVAÇÃO ─────────────────────────────────────────────────────────────
-
-  async aprovarTurma(turmaId) {
-    const rows = await this.#banco.ExecutaComando(
-      `select * from agendamentos where id = ? and tipo = 'turma' limit 1`,
-      [turmaId]
-    );
-
-    if (!rows || !rows.length) throw new Error("Turma não encontrada");
-
-    const statusPermitidos = ['pendente_aprovacao', 'pendente'];
-    if (!statusPermitidos.includes(rows[0].status)) {
-      throw new Error(`Turma não pode ser aprovada — status atual: ${rows[0].status}`);
-    }
-
-    await this.#banco.ExecutaComandoNonQuery(
-      `update agendamentos set status = 'aprovado' where id = ?`,
-      [turmaId]
-    );
-
-    return true;
-  }
-
-  async recusarTurma(turmaId, motivo = null) {
-    const tx = await this.#banco.getConnectionTx();
     try {
-      const [rows] = await tx.query(
-        `select * from agendamentos where id = ? and tipo = 'turma' limit 1`,
-        [turmaId]
+      console.log("REPO criarTurma - entidade recebida:", {
+        tipo: ent?.tipo,
+        servicoId: ent?.servico?.id,
+        data: ent?.data,
+        horaInicio: ent?.horaInicio,
+        horaFim: ent?.horaFim,
+        observacao: ent?.observacao,
+        capacidadeMaxima: ent?.capacidadeMaxima,
+        criadoPor: ent?.criadoPor?.id
+      });
+
+      const resultServico = await tx.query(
+        `select id
+         from servicos
+         where id = ?
+           and ativo = 1
+         limit 1`,
+        [ent.servico.id]
       );
 
-      if (!rows.length) throw new Error("Turma não encontrada");
+      const servRows = this.#normalizeRows(resultServico);
 
-      if (rows[0].status !== "pendente_aprovacao") {
-        throw new Error(`Turma não pode ser recusada — status atual: ${rows[0].status}`);
+      console.log("REPO criarTurma - resultServico raw:", resultServico);
+      console.log("REPO criarTurma - servRows normalizado:", servRows);
+
+      if (!Array.isArray(servRows) || servRows.length === 0) {
+        throw new Error("Serviço não encontrado");
       }
 
-      const novaObs = motivo ? `[Recusado] ${motivo}` : rows[0].observacao;
-
-      await tx.query(
-        `update agendamentos set status = 'recusado', observacao = ? where id = ?`,
-        [novaObs, turmaId]
+      const resultCfg = await tx.query(
+        `select *
+         from horario_config
+         where id = 1
+         limit 1`
       );
 
+      const cfgRows = this.#normalizeRows(resultCfg);
+
+      console.log("REPO criarTurma - cfgRows:", cfgRows);
+
+      if (!Array.isArray(cfgRows) || cfgRows.length === 0) {
+        throw new Error("Configuração da agenda não encontrada");
+      }
+
+      const cfg = cfgRows[0];
+      const data = String(ent.data).slice(0, 10);
+      const horaInicio = String(ent.horaInicio).slice(0, 8);
+      const horaFim = String(ent.horaFim).slice(0, 8);
+
+      const [ano, mes, dia] = data.split("-").map(Number);
+      const dow = new Date(ano, mes - 1, dia).getDay();
+      const fimSemana = dow === 0 || dow === 6;
+
+      const inicioPadrao = fimSemana
+        ? String(cfg.hora_inicio_fim_semana || "").slice(0, 8)
+        : String(cfg.hora_inicio_semana || "").slice(0, 8);
+
+      const fimPadrao = fimSemana
+        ? String(cfg.hora_fim_fim_semana || "").slice(0, 8)
+        : String(cfg.hora_fim_semana || "").slice(0, 8);
+
+      console.log("REPO criarTurma - agenda calculada:", {
+        data,
+        horaInicio,
+        horaFim,
+        dow,
+        fimSemana,
+        inicioPadrao,
+        fimPadrao
+      });
+
+      if (!inicioPadrao || !fimPadrao) {
+        throw new Error("Agenda não configurada para este dia");
+      }
+
+      if (
+        this.#toMin(horaInicio) < this.#toMin(inicioPadrao) ||
+        this.#toMin(horaFim) > this.#toMin(fimPadrao)
+      ) {
+        throw new Error("Horário fora da agenda padrão");
+      }
+
+      const resultExc = await tx.query(
+        `select id, data, hora_inicio_excecao, hora_fim_excecao, recorrente, dias_semana
+         from excecoes_dia
+         where (recorrente = 0 and data = ?)
+            or (recorrente = 1)`,
+        [data]
+      );
+
+      const excRows = this.#normalizeRows(resultExc);
+
+      console.log("REPO criarTurma - exceções:", excRows);
+
+      for (const exc of excRows) {
+        let aplicaNoDia = false;
+
+        if (Number(exc.recorrente) === 1) {
+          const diasSemana = exc.dias_semana
+            ? String(exc.dias_semana).split(",").map(Number)
+            : [];
+
+          aplicaNoDia = diasSemana.includes(dow);
+        } else {
+          aplicaNoDia = String(exc.data).slice(0, 10) === data;
+        }
+
+        if (!aplicaNoDia) continue;
+        if (!exc.hora_inicio_excecao || !exc.hora_fim_excecao) continue;
+
+        const inicioExc = String(exc.hora_inicio_excecao).slice(0, 8);
+        const fimExc = String(exc.hora_fim_excecao).slice(0, 8);
+
+        const temSobreposicao =
+          this.#toMin(horaInicio) < this.#toMin(fimExc) &&
+          this.#toMin(horaFim) > this.#toMin(inicioExc);
+
+        if (temSobreposicao) {
+          throw new Error("Horário indisponível por exceção da agenda");
+        }
+      }
+
+      const slots = this.#gerarSlots(
+        horaInicio,
+        horaFim,
+        Number(cfg.duracao_slot_minutos)
+      );
+
+      console.log("REPO criarTurma - slots gerados:", slots);
+
+      const resultBloq = await tx.query(
+        `select slot
+         from bloqueios_slot
+         where data = ?
+           and slot in (${slots.map(() => "?").join(",")})`,
+        [data, ...slots]
+      );
+
+      const bloqRows = this.#normalizeRows(resultBloq);
+
+      console.log("REPO criarTurma - bloqueios encontrados:", bloqRows);
+
+      if (Array.isArray(bloqRows) && bloqRows.length > 0) {
+        throw new Error("Existe bloqueio nesse horário");
+      }
+
+      const resultOcup = await tx.query(
+        `select slot
+         from agendamento_slots
+         where data = ?
+           and status = 'ativo'
+           and slot in (${slots.map(() => "?").join(",")})
+         limit 1`,
+        [data, ...slots]
+      );
+
+      const ocupRows = this.#normalizeRows(resultOcup);
+
+      console.log("REPO criarTurma - ocupações encontradas:", ocupRows);
+
+      if (Array.isArray(ocupRows) && ocupRows.length > 0) {
+        throw new Error("Já existe agendamento nesse horário");
+      }
+
+      let codigo = null;
+      let tentativas = 0;
+
+      while (!codigo && tentativas < 10) {
+        const candidato = gerarCodigo();
+
+        const resultExistente = await tx.query(
+          `select 1
+           from agendamentos
+           where codigo_convite = ?
+           limit 1`,
+          [candidato]
+        );
+
+        const existente = this.#normalizeRows(resultExistente);
+
+        if (!Array.isArray(existente) || existente.length === 0) {
+          codigo = candidato;
+        }
+
+        tentativas++;
+      }
+
+      if (!codigo) {
+        throw new Error("Não foi possível gerar um código único para a turma");
+      }
+
+      const resultInsert = await tx.query(
+        `insert into agendamentos
+          (tipo, servico_id, data, hora_inicio, hora_fim, status, observacao, criado_por_user_id, capacidade_maxima, codigo_convite)
+         values (?, ?, ?, ?, ?, 'pendente_aprovacao', ?, ?, ?, ?)`,
+        [
+          "turma",
+          ent.servico.id,
+          data,
+          horaInicio,
+          horaFim,
+          ent.observacao ?? null,
+          ent.criadoPor?.id ?? null,
+          ent.capacidadeMaxima ?? 5,
+          codigo
+        ]
+      );
+
+      const insertResult = Array.isArray(resultInsert) ? resultInsert[0] : resultInsert;
+
+      console.log("REPO criarTurma - insert result:", insertResult);
+
       await tx.commit();
-      return true;
+
+      return {
+        insertId: insertResult?.insertId ?? null,
+        codigoConvite: codigo
+      };
     } catch (e) {
       await tx.rollback();
       throw e;
@@ -213,6 +379,154 @@ export default class TurmasRepository {
       if (tx.release) tx.release();
     }
   }
+
+  async aprovarTurma(turmaId) {
+  const tx = await this.#banco.getConnectionTx();
+
+  try {
+    console.log("REPO aprovarTurma - turmaId:", turmaId);
+
+    const resultRows = await tx.query(
+      `select * from agendamentos where id = ? and tipo = 'turma' limit 1`,
+      [turmaId]
+    );
+
+    const rows = this.#normalizeRows(resultRows);
+
+    console.log("REPO aprovarTurma - rows:", rows);
+
+    if (!rows.length) {
+      throw new Error("Turma não encontrada");
+    }
+
+    const turma = rows[0];
+    const statusPermitidos = ["pendente_aprovacao", "pendente"];
+
+    if (!statusPermitidos.includes(turma.status)) {
+      throw new Error(`Turma não pode ser aprovada — status atual: ${turma.status}`);
+    }
+
+    const resultCfg = await tx.query(
+      `select duracao_slot_minutos
+       from horario_config
+       where id = 1
+       limit 1`
+    );
+
+    const cfgRows = this.#normalizeRows(resultCfg);
+
+    if (!cfgRows.length) {
+      throw new Error("Configuração da agenda não encontrada");
+    }
+
+    const duracaoSlot = Number(cfgRows[0].duracao_slot_minutos);
+
+    const slots = this.#gerarSlots(
+      String(turma.hora_inicio).slice(0, 8),
+      String(turma.hora_fim).slice(0, 8),
+      duracaoSlot
+    );
+
+    const resultBloq = await tx.query(
+      `select slot
+       from bloqueios_slot
+       where data = ?
+         and slot in (${slots.map(() => "?").join(",")})`,
+      [turma.data, ...slots]
+    );
+
+    const bloqRows = this.#normalizeRows(resultBloq);
+
+    if (bloqRows.length) {
+      throw new Error("Existe bloqueio nesse horário");
+    }
+
+    const resultOcup = await tx.query(
+      `select slot
+       from agendamento_slots
+       where data = ?
+         and status = 'ativo'
+         and slot in (${slots.map(() => "?").join(",")})
+       limit 1`,
+      [turma.data, ...slots]
+    );
+
+    const ocupRows = this.#normalizeRows(resultOcup);
+
+    if (ocupRows.length) {
+      throw new Error("Já existe agendamento nesse horário");
+    }
+
+    for (const slot of slots) {
+      await tx.query(
+        `insert into agendamento_slots
+         (data, slot, agendamento_id, status)
+         values (?, ?, ?, 'ativo')`,
+        [turma.data, slot, turmaId]
+      );
+    }
+
+    await tx.query(
+      `update agendamentos
+       set status = 'aprovado'
+       where id = ?`,
+      [turmaId]
+    );
+
+    await tx.commit();
+    return true;
+  } catch (e) {
+    await tx.rollback();
+    throw e;
+  } finally {
+    if (tx.release) tx.release();
+  }
+}
+
+async recusarTurma(turmaId, motivo = null) {
+  const tx = await this.#banco.getConnectionTx();
+
+  try {
+    console.log("REPO recusarTurma - turmaId:", turmaId);
+    console.log("REPO recusarTurma - motivo:", motivo);
+
+    const resultRows = await tx.query(
+      `select * from agendamentos where id = ? and tipo = 'turma' limit 1`,
+      [turmaId]
+    );
+
+    const rows = this.#normalizeRows(resultRows);
+
+    console.log("REPO recusarTurma - rows:", rows);
+
+    if (!rows.length) {
+      throw new Error("Turma não encontrada");
+    }
+
+    if (rows[0].status !== "pendente_aprovacao") {
+      throw new Error(`Turma não pode ser recusada — status atual: ${rows[0].status}`);
+    }
+
+    const novaObs = motivo
+      ? `[Recusado] ${motivo}`
+      : (rows[0].observacao ?? null);
+
+    await tx.query(
+      `update agendamentos
+       set status = 'recusado', observacao = ?
+       where id = ?`,
+      [novaObs, turmaId]
+    );
+
+    await tx.commit();
+    return true;
+  } catch (e) {
+    await tx.rollback();
+    throw e;
+  } finally {
+    if (tx.release) tx.release();
+  }
+}
 
   async atualizarDataHora(turmaId, { data, horaInicio, horaFim, capacidadeMaxima }) {
     const tx = await this.#banco.getConnectionTx();
@@ -256,8 +570,6 @@ export default class TurmasRepository {
     }
   }
 
-  // ── PARTICIPANTES ─────────────────────────────────────────────────────────
-  
   async entrarNaTurma(agendamentoId, userId, nomeUser) {
     const tx = await this.#banco.getConnectionTx();
     try {
@@ -449,8 +761,6 @@ export default class TurmasRepository {
       if (tx.release) tx.release();
     }
   }
-
-  // ── MAPPER ────────────────────────────────────────────────────────────────
 
   toMapAgendamento(row) {
     let a = new Agendamento();

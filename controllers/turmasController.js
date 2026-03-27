@@ -14,7 +14,11 @@ export default class TurmasController {
     return req.usuarioLogado?.perfil === "gerente";
   }
 
-  // ── LISTAGEM ──────────────────────────────────────────────────────────────
+  #somarHoras(hora, horas) {
+    const base = new Date(`1970-01-01T${String(hora).slice(0, 8)}`);
+    base.setHours(base.getHours() + Number(horas));
+    return base.toTimeString().slice(0, 8);
+  }
 
   async listarAbertas(req, res) {
     try {
@@ -39,7 +43,7 @@ export default class TurmasController {
   async obterPorId(req, res) {
     try {
       const { id } = req.params;
-      const turma  = await this.#repo.obterTurmaPorId(id);
+      const turma = await this.#repo.obterTurmaPorId(id);
 
       if (!turma) {
         return res.status(404).json({ msg: "Turma não encontrada" });
@@ -69,80 +73,248 @@ export default class TurmasController {
     }
   }
 
-  // ── CRIAR ─────────────────────────────────────────────────────────────────
-
   async criar(req, res) {
     try {
-      if (!this.#isGerente(req)) {
-        return res.status(403).json({ msg: "Apenas gerentes podem criar turmas" });
+      if (!req.usuarioLogado?.id) {
+        return res.status(401).json({ msg: "Usuário não autenticado" });
       }
 
-      const { servicoId, data, horaInicio, horaFim, observacao, capacidadeMaxima } = req.body;
+      console.log("BODY criar turma:", req.body);
+      console.log("USUARIO LOGADO:", req.usuarioLogado);
 
-      if (!servicoId || !data || !horaInicio || !horaFim) {
+      const {
+        servicoId,
+        data,
+        horaInicio,
+        observacao,
+        capacidadeMaxima
+      } = req.body;
+
+      if (!servicoId || !data || !horaInicio) {
         return res.status(400).json({
-          msg: "servicoId, data, horaInicio e horaFim são obrigatórios"
+          msg: "servicoId, data e horaInicio são obrigatórios"
         });
       }
+
+      const servicoIdNumero = Number(servicoId);
+      const capacidadeNumero = Number(capacidadeMaxima ?? 5);
+
+      console.log("VALORES NORMALIZADOS:", {
+        servicoIdOriginal: servicoId,
+        servicoIdNumero,
+        dataOriginal: data,
+        dataNormalizada: String(data).slice(0, 10),
+        horaInicioOriginal: horaInicio,
+        horaInicioNormalizada: String(horaInicio).slice(0, 8),
+        capacidadeOriginal: capacidadeMaxima,
+        capacidadeNumero
+      });
+
+      if (!Number.isInteger(servicoIdNumero) || servicoIdNumero <= 0) {
+        return res.status(400).json({
+          msg: "servicoId inválido"
+        });
+      }
+
+      if (!Number.isInteger(capacidadeNumero) || capacidadeNumero <= 0) {
+        return res.status(400).json({
+          msg: "capacidadeMaxima inválida"
+        });
+      }
+
+      const dataNormalizada = String(data).slice(0, 10);
+      const horaInicioNormalizada = String(horaInicio).slice(0, 8);
 
       let turma = new Agendamento();
       turma.tipo = "turma";
 
-      turma.servico    = new Servico();
-      turma.servico.id = Number(servicoId);
+      turma.servico = new Servico();
+      turma.servico.id = servicoIdNumero;
 
-      turma.data             = data;
-      turma.horaInicio       = horaInicio;
-      turma.horaFim          = horaFim;
-      turma.observacao       = observacao ?? null;
-      turma.capacidadeMaxima = Number(capacidadeMaxima ?? 5);
+      turma.data = dataNormalizada;
+      turma.horaInicio = horaInicioNormalizada;
+      turma.horaFim = this.#somarHoras(turma.horaInicio, 2);
+      turma.observacao = observacao ?? null;
+      turma.capacidadeMaxima = capacidadeNumero;
 
-      turma.criadoPor    = new Usuario();
-      turma.criadoPor.id = req.usuarioLogado.id;
+      turma.criadoPor = new Usuario();
+      turma.criadoPor.id = Number(req.usuarioLogado.id);
+
+      console.log("OBJETO TURMA ANTES DO REPO:", {
+        tipo: turma.tipo,
+        servicoId: turma.servico?.id,
+        data: turma.data,
+        horaInicio: turma.horaInicio,
+        horaFim: turma.horaFim,
+        observacao: turma.observacao,
+        capacidadeMaxima: turma.capacidadeMaxima,
+        criadoPor: turma.criadoPor?.id
+      });
 
       const { codigoConvite } = await this.#repo.criarTurma(turma);
 
       return res.status(201).json({
-        msg: "Turma criada com sucesso",
+        msg: "Solicitação de turma criada com sucesso",
         codigoConvite,
         linkConvite: `/turmas/convite/${codigoConvite}`
       });
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({ msg: error.message || "Erro ao criar turma" });
+      console.error("ERRO AO CRIAR TURMA:", error);
+
+      const mensagem = error.message || "Erro ao criar turma";
+
+      if (mensagem.includes("não encontrada") || mensagem.includes("não encontrado")) {
+        return res.status(404).json({ msg: mensagem });
+      }
+
+      if (
+        mensagem.includes("obrigatório") ||
+        mensagem.includes("Horário") ||
+        mensagem.includes("bloqueio") ||
+        mensagem.includes("indisponível") ||
+        mensagem.includes("agendamento nesse horário") ||
+        mensagem.includes("Agenda") ||
+        mensagem.includes("inválido")
+      ) {
+        return res.status(400).json({ msg: mensagem });
+      }
+
+      return res.status(500).json({ msg: mensagem });
     }
   }
-
-  // ── APROVAÇÃO ─────────────────────────────────────────────────────────────
 
   async aprovar(req, res) {
-    try {
-      if (!this.#isGerente(req)) {
-        return res.status(403).json({ msg: "Apenas gerentes podem aprovar turmas" });
-      }
+  try {
+    if (!this.#isGerente(req)) {
+      return res.status(403).json({ msg: "Apenas gerentes podem aprovar turmas" });
+    }
 
-      await this.#repo.aprovarTurma(Number(req.params.id));
+    const id = Number(req.params.id);
+
+    console.log("APROVAR TURMA - params:", req.params);
+    console.log("APROVAR TURMA - id normalizado:", id);
+    console.log("APROVAR TURMA - usuario:", req.usuarioLogado);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ msg: "ID da turma inválido" });
+    }
+
+    await this.#repo.aprovarTurma(id);
+    return res.status(200).json({ msg: "Turma aprovada com sucesso" });
+  } catch (error) {
+    console.error("ERRO AO APROVAR TURMA:", error);
+
+    const mensagem = error.message || "Erro ao aprovar turma";
+
+    if (mensagem.includes("não encontrada")) {
+      return res.status(404).json({ msg: mensagem });
+    }
+
+    if (
+      mensagem.includes("não pode ser aprovada") ||
+      mensagem.includes("bloqueio") ||
+      mensagem.includes("ocupado") ||
+      mensagem.includes("indisponível")
+    ) {
+      return res.status(400).json({ msg: mensagem });
+    }
+
+    return res.status(500).json({ msg: mensagem });
+  }
+}
+
+async recusar(req, res) {
+  try {
+    if (!this.#isGerente(req)) {
+      return res.status(403).json({ msg: "Apenas gerentes podem recusar turmas" });
+    }
+
+    const id = Number(req.params.id);
+    const { motivo } = req.body || {};
+
+    console.log("RECUSAR TURMA - params:", req.params);
+    console.log("RECUSAR TURMA - id normalizado:", id);
+    console.log("RECUSAR TURMA - body:", req.body);
+    console.log("RECUSAR TURMA - usuario:", req.usuarioLogado);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ msg: "ID da turma inválido" });
+    }
+
+    await this.#repo.recusarTurma(id, motivo ?? null);
+    return res.status(200).json({ msg: "Turma recusada" });
+  } catch (error) {
+    console.error("ERRO AO RECUSAR TURMA:", error);
+
+    const mensagem = error.message || "Erro ao recusar turma";
+
+    if (mensagem.includes("não encontrada")) {
+      return res.status(404).json({ msg: mensagem });
+    }
+
+    if (mensagem.includes("não pode ser recusada")) {
+      return res.status(400).json({ msg: mensagem });
+    }
+
+    return res.status(500).json({ msg: mensagem });
+  }
+}
+
+async alterarStatus(req, res) {
+  try {
+    if (!this.#isGerente(req)) {
+      return res.status(403).json({ msg: "Apenas gerentes podem alterar o status da turma" });
+    }
+
+    const id = Number(req.params.id);
+    const { status, motivo } = req.body || {};
+
+    console.log("ALTERAR STATUS TURMA - params:", req.params);
+    console.log("ALTERAR STATUS TURMA - id normalizado:", id);
+    console.log("ALTERAR STATUS TURMA - body:", req.body);
+    console.log("ALTERAR STATUS TURMA - usuario:", req.usuarioLogado);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ msg: "ID da turma inválido" });
+    }
+
+    if (!status) {
+      return res.status(400).json({ msg: "status é obrigatório" });
+    }
+
+    if (status === "aprovado") {
+      await this.#repo.aprovarTurma(id);
       return res.status(200).json({ msg: "Turma aprovada com sucesso" });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({ msg: error.message || "Erro ao aprovar turma" });
     }
-  }
 
-  async recusar(req, res) {
-    try {
-      if (!this.#isGerente(req)) {
-        return res.status(403).json({ msg: "Apenas gerentes podem recusar turmas" });
-      }
-
-      const { motivo } = req.body;
-      await this.#repo.recusarTurma(Number(req.params.id), motivo ?? null);
+    if (status === "recusado") {
+      await this.#repo.recusarTurma(id, motivo ?? null);
       return res.status(200).json({ msg: "Turma recusada" });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({ msg: error.message || "Erro ao recusar turma" });
     }
+
+    return res.status(400).json({ msg: `Status '${status}' não reconhecido` });
+  } catch (error) {
+    console.error("ERRO AO ALTERAR STATUS DA TURMA:", error);
+
+    const mensagem = error.message || "Erro ao alterar status da turma";
+
+    if (mensagem.includes("não encontrada")) {
+      return res.status(404).json({ msg: mensagem });
+    }
+
+    if (
+      mensagem.includes("não pode ser aprovada") ||
+      mensagem.includes("não pode ser recusada") ||
+      mensagem.includes("bloqueio") ||
+      mensagem.includes("ocupado") ||
+      mensagem.includes("indisponível")
+    ) {
+      return res.status(400).json({ msg: mensagem });
+    }
+
+    return res.status(500).json({ msg: mensagem });
   }
+}
 
   async editarDataHora(req, res) {
     try {
@@ -163,8 +335,6 @@ export default class TurmasController {
     }
   }
 
-  // ── PARTICIPANTES ─────────────────────────────────────────────────────────
-
   async entrar(req, res) {
     try {
       if (!req.usuarioLogado?.id) {
@@ -183,36 +353,37 @@ export default class TurmasController {
       return res.status(500).json({ msg: error.message || "Erro ao entrar na turma" });
     }
   }
-async alterarStatus(req, res) {
-  try {
-    if (!this.#isGerente(req)) {
-      return res.status(403).json({ msg: "Apenas gerentes podem alterar o status da turma" });
+
+  async alterarStatus(req, res) {
+    try {
+      if (!this.#isGerente(req)) {
+        return res.status(403).json({ msg: "Apenas gerentes podem alterar o status da turma" });
+      }
+
+      const { id } = req.params;
+      const { status, motivo } = req.body;
+
+      if (!status) {
+        return res.status(400).json({ msg: "status é obrigatório" });
+      }
+
+      if (status === "aprovado") {
+        await this.#repo.aprovarTurma(Number(id));
+        return res.status(200).json({ msg: "Turma aprovada com sucesso" });
+      }
+
+      if (status === "recusado") {
+        await this.#repo.recusarTurma(Number(id), motivo ?? null);
+        return res.status(200).json({ msg: "Turma recusada" });
+      }
+
+      return res.status(400).json({ msg: `Status '${status}' não reconhecido` });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ msg: error.message || "Erro ao alterar status da turma" });
     }
-
-    const { id } = req.params;
-    const { status, motivo } = req.body;
-
-    if (!status) {
-      return res.status(400).json({ msg: "status é obrigatório" });
-    }
-
-    if (status === 'aprovado') {
-      await this.#repo.aprovarTurma(Number(id));
-      return res.status(200).json({ msg: "Turma aprovada com sucesso" });
-    }
-
-    if (status === 'recusado') {
-      await this.#repo.recusarTurma(Number(id), motivo ?? null);
-      return res.status(200).json({ msg: "Turma recusada" });
-    }
-
-    return res.status(400).json({ msg: `Status '${status}' não reconhecido` });
-
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ msg: error.message || "Erro ao alterar status da turma" });
   }
-}
+
   async entrarPorCodigo(req, res) {
     try {
       if (!req.usuarioLogado?.id) {
