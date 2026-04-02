@@ -1,5 +1,5 @@
 import Database from "../db/database.js";
-import FinanceiroLancamento from "../entities/financeiroLancamento.js";
+import FinanceiroLancamento from "../entities/FinanceiroLancamento.js";
 import Usuario from "../entities/User.js";
 import Venda from "../entities/Venda.js";
 import Agendamento from "../entities/Agendamento.js";
@@ -14,7 +14,38 @@ export default class FinanceiroRepository {
   async listar() {
     const sql = `select * from financeiro_lancamentos order by data_ref desc, created_at desc`;
     const rows = await this.#banco.ExecutaComando(sql, []);
-    return rows.map(r => this.toMap(r));
+    return rows.map((r) => this.toMap(r));
+  }
+
+  
+  async listarComFiltros({ status, inicio, fim } = {}) {
+    const condicoes = [];
+    const params = [];
+
+    if (status) {
+      condicoes.push(`status = ?`);
+      params.push(status);
+    }
+
+    if (inicio) {
+      condicoes.push(`data_ref >= ?`);
+      params.push(inicio);
+    }
+
+    if (fim) {
+      condicoes.push(`data_ref <= ?`);
+      params.push(fim);
+    }
+
+    const where = condicoes.length ? `where ${condicoes.join(" and ")}` : "";
+    const sql = `
+      select * from financeiro_lancamentos
+      ${where}
+      order by data_ref desc, created_at desc
+    `;
+
+    const rows = await this.#banco.ExecutaComando(sql, params);
+    return rows.map((r) => this.toMap(r));
   }
 
   async listarDoUsuario(userId) {
@@ -24,7 +55,7 @@ export default class FinanceiroRepository {
       order by data_ref desc, created_at desc
     `;
     const rows = await this.#banco.ExecutaComando(sql, [userId]);
-    return rows.map(r => this.toMap(r));
+    return rows.map((r) => this.toMap(r));
   }
 
   async obterPorId(id) {
@@ -40,6 +71,36 @@ export default class FinanceiroRepository {
       where id=?
     `;
     return await this.#banco.ExecutaComandoNonQuery(sql, [formaPagto, id]);
+  }
+
+  
+  async atualizarStatus(id, status) {
+    const sql = `
+      update financeiro_lancamentos
+      set status=?
+      where id=?
+    `;
+    return await this.#banco.ExecutaComandoNonQuery(sql, [status, id]);
+  }
+
+
+  async atualizarStatusPorVenda(vendaId, status) {
+    const sql = `
+      update financeiro_lancamentos
+      set status=?
+      where venda_id=?
+    `;
+    return await this.#banco.ExecutaComandoNonQuery(sql, [status, vendaId]);
+  }
+
+
+  async atualizarStatusPorAgendamento(agendamentoId, status) {
+    const sql = `
+      update financeiro_lancamentos
+      set status=?
+      where agendamento_id=?
+    `;
+    return await this.#banco.ExecutaComandoNonQuery(sql, [status, agendamentoId]);
   }
 
   toMap(row) {

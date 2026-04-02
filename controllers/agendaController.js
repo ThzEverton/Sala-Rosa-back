@@ -275,12 +275,7 @@ export default class AgendaController {
           status = "ocupado";
         }
 
-        console.log("CHECK SLOT:", {
-          hora,
-          bloqueado,
-          ocupado,
-          status,
-        });
+        
 
         slots.push({
           slot: hora,
@@ -293,7 +288,7 @@ export default class AgendaController {
       atual.setMinutes(atual.getMinutes() + duracao);
     }
 
-    console.log("RESULTADO FINAL:", slots);
+   
 
     return res.status(200).json(slots);
   } catch (err) {

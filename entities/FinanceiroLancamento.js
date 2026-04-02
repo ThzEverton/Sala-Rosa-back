@@ -1,5 +1,5 @@
 import Base from "./base.js";
-import Usuario from "./usuario.js";
+import Usuario from "./User.js";
 import Venda from "./Venda.js";
 import Agendamento from "./Agendamento.js";
 
