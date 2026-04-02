@@ -10,27 +10,20 @@ export default class TurmasRepository {
     this.#banco = new Database();
   }
 
- #normalizeRows(result) {
-    if (Array.isArray(result?.[0])) {
-      return result[0];
-    }
-
-    if (Array.isArray(result)) {
-      return result;
-    }
-
+  #normalizeRows(result) {
+    if (Array.isArray(result?.[0])) return result[0];
+    if (Array.isArray(result)) return result;
     return [];
   }
 
   #toMin(hora) {
     if (!hora) return 0;
     const [h, m] = String(hora).slice(0, 5).split(":").map(Number);
-    return (h * 60) + m;
+    return h * 60 + m;
   }
 
   #gerarSlots(horaInicio, horaFim, duracaoMinutos) {
     const slots = [];
-
     let atual = new Date(`1970-01-01T${String(horaInicio).slice(0, 8)}`);
     const fim = new Date(`1970-01-01T${String(horaFim).slice(0, 8)}`);
 
@@ -42,7 +35,10 @@ export default class TurmasRepository {
     return slots;
   }
 
-  async listarTurmasAbertas() {
+  // ── Listagens ────────────────────────────────────────────────────────────────
+
+  
+  async listarTurmasAbertas(userId = null) {
     const sql = `
       select
         a.*,
@@ -51,7 +47,17 @@ export default class TurmasRepository {
           select count(*)
           from agendamento_participantes ap
           where ap.agendamento_id = a.id
-        ) as qtd_participantes
+        ) as qtd_participantes,
+        ${
+          userId
+            ? `(
+          select count(*)
+          from agendamento_participantes ap2
+          where ap2.agendamento_id = a.id
+            and ap2.user_id = ?
+        ) as participando`
+            : "0 as participando"
+        }
       from agendamentos a
       inner join servicos s on s.id = a.servico_id
       where a.tipo = 'turma'
@@ -59,12 +65,37 @@ export default class TurmasRepository {
       order by a.data asc, a.hora_inicio asc
     `;
 
-    const rows = await this.#banco.ExecutaComando(sql, []);
-    return rows
-      .filter(r => Number(r.qtd_participantes) < Number(r.capacidade_maxima ?? 5))
-      .map(r => this.toMapAgendamento(r));
-  }
+    const params = userId ? [userId] : [];
+    const rows = await this.#banco.ExecutaComando(sql, params);
 
+    return rows
+      .filter((r) => Number(r.qtd_participantes) < Number(r.capacidade_maxima ?? 5))
+      .map((r) => this.toMapAgendamento(r));
+  }
+async listarTurmasDoUsuario(userId) {
+  const sql = `
+    select
+      a.*,
+      s.nome as servico_nome,
+      (
+        select count(*)
+        from agendamento_participantes ap
+        where ap.agendamento_id = a.id
+      ) as qtd_participantes,
+      1 as participando
+    from agendamentos a
+    inner join servicos s on s.id = a.servico_id
+    inner join agendamento_participantes ap_me
+      on ap_me.agendamento_id = a.id
+      and ap_me.user_id = ?
+    where a.tipo = 'turma'
+      and a.status = 'aprovado'
+    order by a.data asc, a.hora_inicio asc
+  `;
+
+  const rows = await this.#banco.ExecutaComando(sql, [userId]);
+  return rows.map((r) => this.toMapAgendamento(r));
+}
   async listarTodasTurmas() {
     const sql = `
       select
@@ -82,7 +113,7 @@ export default class TurmasRepository {
     `;
 
     const rows = await this.#banco.ExecutaComando(sql, []);
-    return rows.map(r => this.toMapAgendamento(r));
+    return rows.map((r) => this.toMapAgendamento(r));
   }
 
   async obterTurmaPorId(id) {
@@ -147,56 +178,28 @@ export default class TurmasRepository {
     return await this.#banco.ExecutaComando(sql, [turmaId]);
   }
 
- async criarTurma(ent) {
-    const tx = await this.#banco.getConnectionTx();
+  // ── Criar ────────────────────────────────────────────────────────────────────
 
+  async criarTurma(ent) {
+    const tx = await this.#banco.getConnectionTx();
     const gerarCodigo = () =>
       Math.random().toString(36).substring(2, 10).toUpperCase();
 
     try {
-      console.log("REPO criarTurma - entidade recebida:", {
-        tipo: ent?.tipo,
-        servicoId: ent?.servico?.id,
-        data: ent?.data,
-        horaInicio: ent?.horaInicio,
-        horaFim: ent?.horaFim,
-        observacao: ent?.observacao,
-        capacidadeMaxima: ent?.capacidadeMaxima,
-        criadoPor: ent?.criadoPor?.id
-      });
-
       const resultServico = await tx.query(
-        `select id
-         from servicos
-         where id = ?
-           and ativo = 1
-         limit 1`,
+        `select id from servicos where id = ? and ativo = 1 limit 1`,
         [ent.servico.id]
       );
-
       const servRows = this.#normalizeRows(resultServico);
 
-      console.log("REPO criarTurma - resultServico raw:", resultServico);
-      console.log("REPO criarTurma - servRows normalizado:", servRows);
-
-      if (!Array.isArray(servRows) || servRows.length === 0) {
-        throw new Error("Serviço não encontrado");
-      }
+      if (!servRows.length) throw new Error("Serviço não encontrado");
 
       const resultCfg = await tx.query(
-        `select *
-         from horario_config
-         where id = 1
-         limit 1`
+        `select * from horario_config where id = 1 limit 1`
       );
-
       const cfgRows = this.#normalizeRows(resultCfg);
 
-      console.log("REPO criarTurma - cfgRows:", cfgRows);
-
-      if (!Array.isArray(cfgRows) || cfgRows.length === 0) {
-        throw new Error("Configuração da agenda não encontrada");
-      }
+      if (!cfgRows.length) throw new Error("Configuração da agenda não encontrada");
 
       const cfg = cfgRows[0];
       const data = String(ent.data).slice(0, 10);
@@ -214,16 +217,6 @@ export default class TurmasRepository {
       const fimPadrao = fimSemana
         ? String(cfg.hora_fim_fim_semana || "").slice(0, 8)
         : String(cfg.hora_fim_semana || "").slice(0, 8);
-
-      console.log("REPO criarTurma - agenda calculada:", {
-        data,
-        horaInicio,
-        horaFim,
-        dow,
-        fimSemana,
-        inicioPadrao,
-        fimPadrao
-      });
 
       if (!inicioPadrao || !fimPadrao) {
         throw new Error("Agenda não configurada para este dia");
@@ -243,10 +236,7 @@ export default class TurmasRepository {
             or (recorrente = 1)`,
         [data]
       );
-
       const excRows = this.#normalizeRows(resultExc);
-
-      console.log("REPO criarTurma - exceções:", excRows);
 
       for (const exc of excRows) {
         let aplicaNoDia = false;
@@ -255,7 +245,6 @@ export default class TurmasRepository {
           const diasSemana = exc.dias_semana
             ? String(exc.dias_semana).split(",").map(Number)
             : [];
-
           aplicaNoDia = diasSemana.includes(dow);
         } else {
           aplicaNoDia = String(exc.data).slice(0, 10) === data;
@@ -271,79 +260,49 @@ export default class TurmasRepository {
           this.#toMin(horaInicio) < this.#toMin(fimExc) &&
           this.#toMin(horaFim) > this.#toMin(inicioExc);
 
-        if (temSobreposicao) {
-          throw new Error("Horário indisponível por exceção da agenda");
-        }
+        if (temSobreposicao) throw new Error("Horário indisponível por exceção da agenda");
       }
 
-      const slots = this.#gerarSlots(
-        horaInicio,
-        horaFim,
-        Number(cfg.duracao_slot_minutos)
-      );
-
-      console.log("REPO criarTurma - slots gerados:", slots);
+      const slots = this.#gerarSlots(horaInicio, horaFim, Number(cfg.duracao_slot_minutos));
 
       const resultBloq = await tx.query(
-        `select slot
-         from bloqueios_slot
+        `select slot from bloqueios_slot
          where data = ?
            and slot in (${slots.map(() => "?").join(",")})`,
         [data, ...slots]
       );
-
       const bloqRows = this.#normalizeRows(resultBloq);
 
-      console.log("REPO criarTurma - bloqueios encontrados:", bloqRows);
-
-      if (Array.isArray(bloqRows) && bloqRows.length > 0) {
-        throw new Error("Existe bloqueio nesse horário");
-      }
+      if (bloqRows.length) throw new Error("Existe bloqueio nesse horário");
 
       const resultOcup = await tx.query(
-        `select slot
-         from agendamento_slots
+        `select slot from agendamento_slots
          where data = ?
            and status = 'ativo'
            and slot in (${slots.map(() => "?").join(",")})
          limit 1`,
         [data, ...slots]
       );
-
       const ocupRows = this.#normalizeRows(resultOcup);
 
-      console.log("REPO criarTurma - ocupações encontradas:", ocupRows);
+      if (ocupRows.length) throw new Error("Já existe agendamento nesse horário");
 
-      if (Array.isArray(ocupRows) && ocupRows.length > 0) {
-        throw new Error("Já existe agendamento nesse horário");
-      }
-
+      // Gera código único
       let codigo = null;
       let tentativas = 0;
 
       while (!codigo && tentativas < 10) {
         const candidato = gerarCodigo();
-
         const resultExistente = await tx.query(
-          `select 1
-           from agendamentos
-           where codigo_convite = ?
-           limit 1`,
+          `select 1 from agendamentos where codigo_convite = ? limit 1`,
           [candidato]
         );
-
         const existente = this.#normalizeRows(resultExistente);
-
-        if (!Array.isArray(existente) || existente.length === 0) {
-          codigo = candidato;
-        }
-
+        if (!existente.length) codigo = candidato;
         tentativas++;
       }
 
-      if (!codigo) {
-        throw new Error("Não foi possível gerar um código único para a turma");
-      }
+      if (!codigo) throw new Error("Não foi possível gerar um código único para a turma");
 
       const resultInsert = await tx.query(
         `insert into agendamentos
@@ -358,19 +317,17 @@ export default class TurmasRepository {
           ent.observacao ?? null,
           ent.criadoPor?.id ?? null,
           ent.capacidadeMaxima ?? 5,
-          codigo
+          codigo,
         ]
       );
 
       const insertResult = Array.isArray(resultInsert) ? resultInsert[0] : resultInsert;
 
-      console.log("REPO criarTurma - insert result:", insertResult);
-
       await tx.commit();
 
       return {
         insertId: insertResult?.insertId ?? null,
-        codigoConvite: codigo
+        codigoConvite: codigo,
       };
     } catch (e) {
       await tx.rollback();
@@ -380,161 +337,132 @@ export default class TurmasRepository {
     }
   }
 
+  // ── Aprovar ──────────────────────────────────────────────────────────────────
+
   async aprovarTurma(turmaId) {
-  const tx = await this.#banco.getConnectionTx();
+    const tx = await this.#banco.getConnectionTx();
 
-  try {
-    console.log("REPO aprovarTurma - turmaId:", turmaId);
-
-    const resultRows = await tx.query(
-      `select * from agendamentos where id = ? and tipo = 'turma' limit 1`,
-      [turmaId]
-    );
-
-    const rows = this.#normalizeRows(resultRows);
-
-    console.log("REPO aprovarTurma - rows:", rows);
-
-    if (!rows.length) {
-      throw new Error("Turma não encontrada");
-    }
-
-    const turma = rows[0];
-    const statusPermitidos = ["pendente_aprovacao", "pendente"];
-
-    if (!statusPermitidos.includes(turma.status)) {
-      throw new Error(`Turma não pode ser aprovada — status atual: ${turma.status}`);
-    }
-
-    const resultCfg = await tx.query(
-      `select duracao_slot_minutos
-       from horario_config
-       where id = 1
-       limit 1`
-    );
-
-    const cfgRows = this.#normalizeRows(resultCfg);
-
-    if (!cfgRows.length) {
-      throw new Error("Configuração da agenda não encontrada");
-    }
-
-    const duracaoSlot = Number(cfgRows[0].duracao_slot_minutos);
-
-    const slots = this.#gerarSlots(
-      String(turma.hora_inicio).slice(0, 8),
-      String(turma.hora_fim).slice(0, 8),
-      duracaoSlot
-    );
-
-    const resultBloq = await tx.query(
-      `select slot
-       from bloqueios_slot
-       where data = ?
-         and slot in (${slots.map(() => "?").join(",")})`,
-      [turma.data, ...slots]
-    );
-
-    const bloqRows = this.#normalizeRows(resultBloq);
-
-    if (bloqRows.length) {
-      throw new Error("Existe bloqueio nesse horário");
-    }
-
-    const resultOcup = await tx.query(
-      `select slot
-       from agendamento_slots
-       where data = ?
-         and status = 'ativo'
-         and slot in (${slots.map(() => "?").join(",")})
-       limit 1`,
-      [turma.data, ...slots]
-    );
-
-    const ocupRows = this.#normalizeRows(resultOcup);
-
-    if (ocupRows.length) {
-      throw new Error("Já existe agendamento nesse horário");
-    }
-
-    for (const slot of slots) {
-      await tx.query(
-        `insert into agendamento_slots
-         (data, slot, agendamento_id, status)
-         values (?, ?, ?, 'ativo')`,
-        [turma.data, slot, turmaId]
+    try {
+      const resultRows = await tx.query(
+        `select * from agendamentos where id = ? and tipo = 'turma' limit 1`,
+        [turmaId]
       );
+      const rows = this.#normalizeRows(resultRows);
+
+      if (!rows.length) throw new Error("Turma não encontrada");
+
+      const turma = rows[0];
+      const statusPermitidos = ["pendente_aprovacao", "pendente"];
+
+      if (!statusPermitidos.includes(turma.status)) {
+        throw new Error(`Turma não pode ser aprovada — status atual: ${turma.status}`);
+      }
+
+      const resultCfg = await tx.query(
+        `select duracao_slot_minutos from horario_config where id = 1 limit 1`
+      );
+      const cfgRows = this.#normalizeRows(resultCfg);
+
+      if (!cfgRows.length) throw new Error("Configuração da agenda não encontrada");
+
+      const duracaoSlot = Number(cfgRows[0].duracao_slot_minutos);
+
+      const slots = this.#gerarSlots(
+        String(turma.hora_inicio).slice(0, 8),
+        String(turma.hora_fim).slice(0, 8),
+        duracaoSlot
+      );
+
+      const resultBloq = await tx.query(
+        `select slot from bloqueios_slot
+         where data = ?
+           and slot in (${slots.map(() => "?").join(",")})`,
+        [turma.data, ...slots]
+      );
+      const bloqRows = this.#normalizeRows(resultBloq);
+
+      if (bloqRows.length) throw new Error("Existe bloqueio nesse horário");
+
+      const resultOcup = await tx.query(
+        `select slot from agendamento_slots
+         where data = ?
+           and status = 'ativo'
+           and slot in (${slots.map(() => "?").join(",")})
+         limit 1`,
+        [turma.data, ...slots]
+      );
+      const ocupRows = this.#normalizeRows(resultOcup);
+
+      if (ocupRows.length) throw new Error("Já existe agendamento nesse horário");
+
+      for (const slot of slots) {
+        await tx.query(
+          `insert into agendamento_slots (data, slot, agendamento_id, status)
+           values (?, ?, ?, 'ativo')`,
+          [turma.data, slot, turmaId]
+        );
+      }
+
+      await tx.query(
+        `update agendamentos set status = 'aprovado' where id = ?`,
+        [turmaId]
+      );
+
+      await tx.commit();
+      return true;
+    } catch (e) {
+      await tx.rollback();
+      throw e;
+    } finally {
+      if (tx.release) tx.release();
     }
-
-    await tx.query(
-      `update agendamentos
-       set status = 'aprovado'
-       where id = ?`,
-      [turmaId]
-    );
-
-    await tx.commit();
-    return true;
-  } catch (e) {
-    await tx.rollback();
-    throw e;
-  } finally {
-    if (tx.release) tx.release();
   }
-}
 
-async recusarTurma(turmaId, motivo = null) {
-  const tx = await this.#banco.getConnectionTx();
+  // ── Recusar ──────────────────────────────────────────────────────────────────
 
-  try {
-    console.log("REPO recusarTurma - turmaId:", turmaId);
-    console.log("REPO recusarTurma - motivo:", motivo);
+  async recusarTurma(turmaId, motivo = null) {
+    const tx = await this.#banco.getConnectionTx();
 
-    const resultRows = await tx.query(
-      `select * from agendamentos where id = ? and tipo = 'turma' limit 1`,
-      [turmaId]
-    );
+    try {
+      const resultRows = await tx.query(
+        `select * from agendamentos where id = ? and tipo = 'turma' limit 1`,
+        [turmaId]
+      );
+      const rows = this.#normalizeRows(resultRows);
 
-    const rows = this.#normalizeRows(resultRows);
+      if (!rows.length) throw new Error("Turma não encontrada");
 
-    console.log("REPO recusarTurma - rows:", rows);
+      if (rows[0].status !== "pendente_aprovacao") {
+        throw new Error(`Turma não pode ser recusada — status atual: ${rows[0].status}`);
+      }
 
-    if (!rows.length) {
-      throw new Error("Turma não encontrada");
+      const novaObs = motivo ? `[Recusado] ${motivo}` : (rows[0].observacao ?? null);
+
+      await tx.query(
+        `update agendamentos set status = 'recusado', observacao = ? where id = ?`,
+        [novaObs, turmaId]
+      );
+
+      await tx.commit();
+      return true;
+    } catch (e) {
+      await tx.rollback();
+      throw e;
+    } finally {
+      if (tx.release) tx.release();
     }
-
-    if (rows[0].status !== "pendente_aprovacao") {
-      throw new Error(`Turma não pode ser recusada — status atual: ${rows[0].status}`);
-    }
-
-    const novaObs = motivo
-      ? `[Recusado] ${motivo}`
-      : (rows[0].observacao ?? null);
-
-    await tx.query(
-      `update agendamentos
-       set status = 'recusado', observacao = ?
-       where id = ?`,
-      [novaObs, turmaId]
-    );
-
-    await tx.commit();
-    return true;
-  } catch (e) {
-    await tx.rollback();
-    throw e;
-  } finally {
-    if (tx.release) tx.release();
   }
-}
+
+  // ── Editar ───────────────────────────────────────────────────────────────────
 
   async atualizarDataHora(turmaId, { data, horaInicio, horaFim, capacidadeMaxima }) {
     const tx = await this.#banco.getConnectionTx();
     try {
-      const [rows] = await tx.query(
+      const resultRows = await tx.query(
         `select * from agendamentos where id = ? and tipo = 'turma' limit 1`,
         [turmaId]
       );
+      const rows = this.#normalizeRows(resultRows);
 
       if (!rows.length) throw new Error("Turma não encontrada");
 
@@ -549,7 +477,10 @@ async recusarTurma(turmaId, motivo = null) {
       if (data) { campos.push("data = ?"); vals.push(data); }
       if (horaInicio) { campos.push("hora_inicio = ?"); vals.push(horaInicio); }
       if (horaFim) { campos.push("hora_fim = ?"); vals.push(horaFim); }
-      if (capacidadeMaxima) { campos.push("capacidade_maxima = ?"); vals.push(Number(capacidadeMaxima)); }
+      if (capacidadeMaxima) {
+        campos.push("capacidade_maxima = ?");
+        vals.push(Number(capacidadeMaxima));
+      }
 
       if (!campos.length) throw new Error("Nenhum campo enviado para atualizar");
 
@@ -570,13 +501,17 @@ async recusarTurma(turmaId, motivo = null) {
     }
   }
 
+  // ── Participantes ────────────────────────────────────────────────────────────
+
   async entrarNaTurma(agendamentoId, userId, nomeUser) {
     const tx = await this.#banco.getConnectionTx();
+
     try {
-      const [rows] = await tx.query(
+      const resultRows = await tx.query(
         `select * from agendamentos where id = ? limit 1`,
         [agendamentoId]
       );
+      const rows = this.#normalizeRows(resultRows);
 
       if (!rows.length) throw new Error("Turma não encontrada");
 
@@ -588,22 +523,25 @@ async recusarTurma(turmaId, motivo = null) {
         throw new Error("Esta turma ainda não está disponível para inscrições");
       }
 
-      const [cRows] = await tx.query(
+      const resultCount = await tx.query(
         `select count(*) as qtd from agendamento_participantes where agendamento_id = ?`,
         [agendamentoId]
       );
-
+      const countRows = this.#normalizeRows(resultCount);
       const capacidade = Number(ag.capacidade_maxima ?? 5);
-      if (Number(cRows[0].qtd) >= capacidade) {
+
+      if (Number(countRows[0].qtd) >= capacidade) {
         throw new Error(`Turma cheia (máximo ${capacidade} participantes)`);
       }
 
-      const [ja] = await tx.query(
-        `select 1 from agendamento_participantes where agendamento_id = ? and user_id = ? limit 1`,
+      const resultJa = await tx.query(
+        `select 1 from agendamento_participantes
+         where agendamento_id = ? and user_id = ? limit 1`,
         [agendamentoId, userId]
       );
+      const jaRows = this.#normalizeRows(resultJa);
 
-      if (ja.length) throw new Error("Você já está nesta turma");
+      if (jaRows.length) throw new Error("Você já está nesta turma");
 
       await tx.query(
         `insert into agendamento_participantes (agendamento_id, user_id, nome_no_momento)
@@ -611,11 +549,11 @@ async recusarTurma(turmaId, motivo = null) {
         [agendamentoId, userId, nomeUser]
       );
 
-      const [servRows] = await tx.query(
+      const resultServ = await tx.query(
         `select * from servicos where id = ? limit 1`,
         [ag.servico_id]
       );
-
+      const servRows = this.#normalizeRows(resultServ);
       const serv = servRows[0] ?? null;
       const preco = serv ? Number(serv.preco) : 0;
       const nomeServ = serv ? serv.nome : "Serviço";
@@ -639,11 +577,14 @@ async recusarTurma(turmaId, motivo = null) {
 
   async entrarNaTurmaPorCodigo(codigo, userId, nomeUser) {
     const tx = await this.#banco.getConnectionTx();
+
     try {
-      const [rows] = await tx.query(
-        `select * from agendamentos where codigo_convite = ? and tipo = 'turma' limit 1`,
+      const resultRows = await tx.query(
+        `select * from agendamentos
+         where codigo_convite = ? and tipo = 'turma' limit 1`,
         [codigo]
       );
+      const rows = this.#normalizeRows(resultRows);
 
       if (!rows.length) throw new Error("Código de convite inválido");
 
@@ -653,22 +594,25 @@ async recusarTurma(turmaId, motivo = null) {
         throw new Error("Esta turma não está disponível para inscrições");
       }
 
-      const [cRows] = await tx.query(
+      const resultCount = await tx.query(
         `select count(*) as qtd from agendamento_participantes where agendamento_id = ?`,
         [ag.id]
       );
-
+      const countRows = this.#normalizeRows(resultCount);
       const capacidade = Number(ag.capacidade_maxima ?? 5);
-      if (Number(cRows[0].qtd) >= capacidade) {
+
+      if (Number(countRows[0].qtd) >= capacidade) {
         throw new Error(`Turma cheia (máximo ${capacidade} participantes)`);
       }
 
-      const [ja] = await tx.query(
-        `select 1 from agendamento_participantes where agendamento_id = ? and user_id = ? limit 1`,
+      const resultJa = await tx.query(
+        `select 1 from agendamento_participantes
+         where agendamento_id = ? and user_id = ? limit 1`,
         [ag.id, userId]
       );
+      const jaRows = this.#normalizeRows(resultJa);
 
-      if (ja.length) throw new Error("Você já está nesta turma");
+      if (jaRows.length) throw new Error("Você já está nesta turma");
 
       await tx.query(
         `insert into agendamento_participantes (agendamento_id, user_id, nome_no_momento)
@@ -676,11 +620,11 @@ async recusarTurma(turmaId, motivo = null) {
         [ag.id, userId, nomeUser]
       );
 
-      const [servRows] = await tx.query(
+      const resultServ = await tx.query(
         `select * from servicos where id = ? limit 1`,
         [ag.servico_id]
       );
-
+      const servRows = this.#normalizeRows(resultServ);
       const serv = servRows[0] ?? null;
       const preco = serv ? Number(serv.preco) : 0;
       const nomeServ = serv ? serv.nome : "Serviço";
@@ -704,21 +648,26 @@ async recusarTurma(turmaId, motivo = null) {
 
   async sairDaTurma(agendamentoId, userId) {
     const tx = await this.#banco.getConnectionTx();
+
     try {
-      const [ja] = await tx.query(
-        `select 1 from agendamento_participantes where agendamento_id = ? and user_id = ? limit 1`,
+      const resultJa = await tx.query(
+        `select 1 from agendamento_participantes
+         where agendamento_id = ? and user_id = ? limit 1`,
+        [agendamentoId, userId]
+      );
+      const jaRows = this.#normalizeRows(resultJa);
+
+      if (!jaRows.length) throw new Error("Usuário não está nesta turma");
+
+      await tx.query(
+        `delete from agendamento_participantes
+         where agendamento_id = ? and user_id = ?`,
         [agendamentoId, userId]
       );
 
-      if (!ja.length) throw new Error("Usuário não está nesta turma");
-
       await tx.query(
-        `delete from agendamento_participantes where agendamento_id = ? and user_id = ?`,
-        [agendamentoId, userId]
-      );
-
-      await tx.query(
-        `delete from financeiro_lancamentos where agendamento_id = ? and user_id = ?`,
+        `delete from financeiro_lancamentos
+         where agendamento_id = ? and user_id = ?`,
         [agendamentoId, userId]
       );
 
@@ -734,21 +683,26 @@ async recusarTurma(turmaId, motivo = null) {
 
   async removerParticipante(turmaId, userId) {
     const tx = await this.#banco.getConnectionTx();
+
     try {
-      const [ja] = await tx.query(
-        `select 1 from agendamento_participantes where agendamento_id = ? and user_id = ? limit 1`,
+      const resultJa = await tx.query(
+        `select 1 from agendamento_participantes
+         where agendamento_id = ? and user_id = ? limit 1`,
+        [turmaId, userId]
+      );
+      const jaRows = this.#normalizeRows(resultJa);
+
+      if (!jaRows.length) throw new Error("Participante não encontrado nesta turma");
+
+      await tx.query(
+        `delete from agendamento_participantes
+         where agendamento_id = ? and user_id = ?`,
         [turmaId, userId]
       );
 
-      if (!ja.length) throw new Error("Participante não encontrado nesta turma");
-
       await tx.query(
-        `delete from agendamento_participantes where agendamento_id = ? and user_id = ?`,
-        [turmaId, userId]
-      );
-
-      await tx.query(
-        `delete from financeiro_lancamentos where agendamento_id = ? and user_id = ?`,
+        `delete from financeiro_lancamentos
+         where agendamento_id = ? and user_id = ?`,
         [turmaId, userId]
       );
 
@@ -762,28 +716,32 @@ async recusarTurma(turmaId, motivo = null) {
     }
   }
 
+  // ── Mapper ───────────────────────────────────────────────────────────────────
+
   toMapAgendamento(row) {
-    let a = new Agendamento();
-    a.id = row["id"];
-    a.tipo = row["tipo"];
+  const a = new Agendamento();
+  a.id = row["id"];
+  a.tipo = row["tipo"];
 
-    a.servico = new Servico();
-    a.servico.id = row["servico_id"];
-    a.servico.nome = row["servico_nome"];
+  a.servico = new Servico();
+  a.servico.id = row["servico_id"];
+  a.servico.nome = row["servico_nome"];
 
-    a.data = row["data"];
-    a.horaInicio = row["hora_inicio"];
-    a.horaFim = row["hora_fim"];
-    a.status = row["status"];
-    a.observacao = row["observacao"];
-    a.capacidadeMaxima = Number(row["capacidade_maxima"] ?? 5);
-    a.codigoConvite = row["codigo_convite"] ?? null;
+  a.data = row["data"];
+  a.horaInicio = row["hora_inicio"];
+  a.horaFim = row["hora_fim"];
+  a.status = row["status"];
+  a.observacao = row["observacao"];
+  a.capacidadeMaxima = Number(row["capacidade_maxima"] ?? 5);
+  a.capacidadeMinima = 2;
+  a.codigoConvite = row["codigo_convite"] ?? null;
 
-    a.criadoPor = new Usuario();
-    a.criadoPor.id = row["criado_por_user_id"];
+  a.criadoPor = new Usuario();
+  a.criadoPor.id = row["criado_por_user_id"];
 
-    a.qtdParticipantes = Number(row["qtd_participantes"] ?? 0);
+  a.quantidadeParticipantes = Number(row["qtd_participantes"] ?? 0);
+  a.participando = Number(row["participando"] ?? 0) > 0;
 
-    return a;
-  }
+  return a;
+}
 }

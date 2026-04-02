@@ -13,6 +13,10 @@ export default class Agendamento extends Base {
   #observacao;
   #criadoPor;
   #codigoConvite;
+  #capacidadeMaxima;
+  #capacidadeMinima;
+  #quantidadeParticipantes;
+  #participando;
 
   get id() { return this.#id; }
   set id(v) { this.#id = v; }
@@ -44,6 +48,18 @@ export default class Agendamento extends Base {
   get codigoConvite() { return this.#codigoConvite; }
   set codigoConvite(v) { this.#codigoConvite = v; }
 
+  get capacidadeMaxima() { return this.#capacidadeMaxima; }
+  set capacidadeMaxima(v) { this.#capacidadeMaxima = v; }
+
+  get capacidadeMinima() { return this.#capacidadeMinima; }
+  set capacidadeMinima(v) { this.#capacidadeMinima = v; }
+
+  get quantidadeParticipantes() { return this.#quantidadeParticipantes; }
+  set quantidadeParticipantes(v) { this.#quantidadeParticipantes = v; }
+
+  get participando() { return this.#participando; }
+  set participando(v) { this.#participando = v; }
+
   constructor() {
     super();
     this.#id = null;
@@ -56,5 +72,9 @@ export default class Agendamento extends Base {
     this.#observacao = null;
     this.#criadoPor = new Usuario();
     this.#codigoConvite = null;
+    this.#capacidadeMaxima = 5;
+    this.#capacidadeMinima = 2;
+    this.#quantidadeParticipantes = 0;
+    this.#participando = false;
   }
 }
