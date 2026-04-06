@@ -329,43 +329,41 @@ export default class AgendamentosRepository {
 }
 
   async cancelar(id) {
-    const tx = await this.#banco.getConnectionTx();
+  const tx = await this.#banco.getConnectionTx();
 
-    try {
-      const [rows] = await tx.query(
-        `select * from agendamentos where id = ? limit 1`,
-        [id]
-      );
+  try {
+    const rows = await tx.query(
+      `select * from agendamentos where id = ? limit 1`,
+      [id]
+    );
 
-      if (!rows.length) {
-        throw new Error("Agendamento não encontrado");
-      }
-
-      const ag = rows[0];
-
-      if (ag.status === "cancelado") {
-        throw new Error("Agendamento já está cancelado");
-      }
-
-      await tx.query(
-        `update agendamentos set status = 'cancelado' where id = ?`,
-        [id]
-      );
-
-      await tx.query(
-        `update agendamento_slots set status = 'cancelado' where agendamento_id = ?`,
-        [id]
-      );
-
-      await tx.commit();
-      return true;
-    } catch (e) {
-      await tx.rollback();
-      throw e;
-    } finally {
-      if (tx.release) tx.release();
+    if (!rows.length) {
+      throw new Error("Agendamento não encontrado");
     }
+
+    const ag = rows[0];
+
+    if (ag.status === "cancelado") {
+      throw new Error("Agendamento já está cancelado");
+    }
+
+    await tx.query(
+      `update agendamentos set status = 'cancelado' where id = ?`,
+      [id]
+    );
+
+    await tx.query(
+      `update agendamento_slots set status = 'cancelado' where agendamento_id = ?`,
+      [id]
+    );
+
+    await tx.commit();
+    return true;
+  } catch (e) {
+    await tx.rollback();
+    throw e;
   }
+}
 
   #somarMinutos(hora, minutos) {
     const base = new Date(`1970-01-01T${String(hora).slice(0, 8)}`);

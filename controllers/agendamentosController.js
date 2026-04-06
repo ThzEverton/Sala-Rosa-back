@@ -130,19 +130,38 @@ export default class AgendamentosController {
 }
 
   async cancelar(req, res) {
-    try {
-      const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-      await this.#repo.cancelar(Number(id));
+    const idNum = Number(id);
 
-      return res.status(200).json({
-        msg: "Agendamento cancelado com sucesso"
-      });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({
-        msg: error.message || "Erro ao cancelar agendamento"
+    if (!id || isNaN(idNum)) {
+      return res.status(400).json({
+        msg: "ID inválido"
       });
     }
+
+    await this.#repo.cancelar(idNum);
+
+    return res.status(200).json({
+      msg: "Agendamento cancelado com sucesso"
+    });
+  } catch (error) {
+    console.error(error);
+
+    const mensagem = error.message || "Erro ao cancelar agendamento";
+
+    if (mensagem.includes("Agendamento não encontrado")) {
+      return res.status(404).json({ msg: mensagem });
+    }
+
+    if (mensagem.includes("Agendamento já está cancelado")) {
+      return res.status(400).json({ msg: mensagem });
+    }
+
+    return res.status(500).json({
+      msg: mensagem
+    });
   }
+}
 }

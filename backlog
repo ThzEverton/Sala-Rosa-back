@@ -4,7 +4,6 @@ adicionar cliente a venda ou atendimento
 colocar filtro por data de aniversario para mandar feliz aniversario
 criar agendamento para o cliente - 
 arrumar o auth para bloqueio de rota no back end 
-fazer o financeiro la vai entrar venda e atendimento tbm 
 arrumar data retrograda no reagendar turma e horarios tem que vir o padrao - igual tem nos agendamentos 
 atualizar status do atendimento - 
 fazer reponsividade agendamentos- turmas - estoque - financeiro - cadastros 

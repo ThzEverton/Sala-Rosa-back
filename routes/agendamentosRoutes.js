@@ -19,4 +19,13 @@ router.post("/", auth.validarToken, (req, res) => {
     ctrl.criar(req, res);
 });
 
+// PUT /agendamentos/:id/cancelar
+router.put("/:id/cancelar", auth.validarToken, (req, res) => {
+  /* #swagger.security = [{ "bearerAuth": [] }] */
+  // #swagger.tags = ['Agendamentos']
+  // #swagger.summary = 'Cancela um agendamento'
+  ctrl.cancelar(req, res);
+});
+
+
 export default router;
