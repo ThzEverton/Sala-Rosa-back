@@ -1382,7 +1382,7 @@
         "tags": [
           "Agendamentos"
         ],
-        "summary": "Cria um novo agendamento",
+        "summary": "Cria um novo agendamento para o próprio usuário logado",
         "description": "",
         "parameters": [
           {
@@ -1431,6 +1431,140 @@
                     "example": "any"
                   },
                   "observacao": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agendamentos/gerente": {
+      "post": {
+        "tags": [
+          "Agendamentos"
+        ],
+        "summary": "Cria um novo agendamento como gerente, para si ou para um cliente",
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "servicoId": {
+                    "example": "any"
+                  },
+                  "data": {
+                    "example": "any"
+                  },
+                  "horaInicio": {
+                    "example": "any"
+                  },
+                  "observacao": {
+                    "example": "any"
+                  },
+                  "paraUserId": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agendamentos/{id}": {
+      "patch": {
+        "tags": [
+          "Agendamentos"
+        ],
+        "summary": "Remarca um agendamento",
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "novaData": {
+                    "example": "any"
+                  },
+                  "novoHorario": {
                     "example": "any"
                   }
                 }
