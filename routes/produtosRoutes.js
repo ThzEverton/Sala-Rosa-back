@@ -7,7 +7,7 @@ const router = express.Router();
 let ctrl = new ProdutosController();
 let auth = new AuthMiddleware();
 
-router.get("/", auth.validarToken, (req,res) => {
+router.get("/", auth.validarToken,auth.somenteGerente, (req,res) => {
 
     // #swagger.tags = ['Produtos']
     // #swagger.summary = 'Lista todos os produtos'
@@ -15,7 +15,7 @@ router.get("/", auth.validarToken, (req,res) => {
     ctrl.listar(req,res);
 });
 
-router.get("/:id", auth.validarToken, (req,res) => {
+router.get("/:id", auth.validarToken,auth.somenteGerente, (req,res) => {
 
     // #swagger.tags = ['Produtos']
     // #swagger.summary = 'Obtém um produto'
@@ -23,7 +23,7 @@ router.get("/:id", auth.validarToken, (req,res) => {
     ctrl.obter(req,res);
 });
 
-router.post("/", auth.validarToken, (req,res) => {
+router.post("/", auth.validarToken,auth.somenteGerente, (req,res) => {
 
     // #swagger.tags = ['Produtos']
     // #swagger.summary = 'Cadastra um produto'
@@ -31,7 +31,7 @@ router.post("/", auth.validarToken, (req,res) => {
     ctrl.cadastrar(req,res);
 });
 
-router.put("/:id", auth.validarToken, (req,res) => {
+router.put("/:id", auth.validarToken,auth.somenteGerente, (req,res) => {
 
     // #swagger.tags = ['Produtos']
     // #swagger.summary = 'Atualiza um produto'
@@ -39,7 +39,7 @@ router.put("/:id", auth.validarToken, (req,res) => {
     ctrl.atualizar(req,res);
 });
 
-router.delete("/:id", auth.validarToken, (req,res) => {
+router.delete("/:id", auth.validarToken,auth.somenteGerente, (req,res) => {
 
     // #swagger.tags = ['Produtos']
     // #swagger.summary = 'Exclui um produto'

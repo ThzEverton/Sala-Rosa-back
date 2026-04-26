@@ -54,4 +54,11 @@ export default class AuthMiddleware {
       return res.status(401).json({ msg: "Token inválido!" });
     }
   }
+
+somenteGerente(req, res, next) {
+  if (req.usuarioLogado?.perfil !== "gerente")
+    return res.status(403).json({ msg: "Acesso restrito ao gerente." });
+  next();
+}
+
 }

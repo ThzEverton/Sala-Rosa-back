@@ -15,7 +15,7 @@ router.get("/", auth.validarToken, (req, res) => {
     ctrl.listar(req, res);
 });
 
-router.get("/:id", auth.validarToken, (req, res) => {
+router.get("/:id", auth.validarToken,auth.somenteGerente, (req, res) => {
 
     // #swagger.tags = ['Financeiro']
     // #swagger.summary = 'Obtém um lançamento financeiro'
@@ -23,7 +23,7 @@ router.get("/:id", auth.validarToken, (req, res) => {
     ctrl.obterPorId(req, res);
 });
 
-router.patch("/:id", auth.validarToken, (req, res) => {
+router.patch("/:id", auth.validarToken,auth.somenteGerente, (req, res) => {
 
     // #swagger.tags = ['Financeiro']
     // #swagger.summary = 'Atualiza o status de um lançamento (PAGO, CANCELADO, ESTORNADO)'

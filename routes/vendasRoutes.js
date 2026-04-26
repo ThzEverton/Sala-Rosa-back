@@ -10,7 +10,7 @@ const auth = new AuthMiddleware();
 
 
 // GET /vendas — lista todas as vendas
-router.get("/", auth.validarToken, (req, res) => {
+router.get("/", auth.validarToken,auth.somenteGerente, (req, res) => {
   // #swagger.tags = ['Vendas']
   // #swagger.summary = 'Lista todas as vendas'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -18,7 +18,7 @@ router.get("/", auth.validarToken, (req, res) => {
 });
 
 // GET /vendas/:id — detalhe com itens
-router.get("/:id", auth.validarToken, (req, res) => {
+router.get("/:id", auth.validarToken,auth.somenteGerente, (req, res) => {
   // #swagger.tags = ['Vendas']
   // #swagger.summary = 'Obtém uma venda por ID com seus itens'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -26,7 +26,7 @@ router.get("/:id", auth.validarToken, (req, res) => {
 });
 
 // POST /vendas — registrar nova venda
-router.post("/", auth.validarToken, (req, res) => {
+router.post("/", auth.validarToken,auth.somenteGerente, (req, res) => {
   // #swagger.tags = ['Vendas']
   // #swagger.summary = 'Registra uma nova venda'
   // #swagger.security = [{ "bearerAuth": [] }]
@@ -34,7 +34,7 @@ router.post("/", auth.validarToken, (req, res) => {
 });
 
 // PATCH /vendas/:id/pagamento — atualiza forma e status de pagamento
-router.patch("/:id/pagamento", auth.validarToken, (req, res) => {
+router.patch("/:id/pagamento", auth.validarToken,auth.somenteGerente, (req, res) => {
   // #swagger.tags = ['Vendas']
   // #swagger.summary = 'Atualiza forma e status de pagamento de uma venda'
   // #swagger.security = [{ "bearerAuth": [] }]

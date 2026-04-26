@@ -34,8 +34,6 @@ app.use(cookieParser());
 // Swagger
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
-// Health
-app.get("/health", (req, res) => res.json({ ok: true, api: "Sala Rosa" }));
 
 // Rotas
 app.use("/autenticacao", authRoutes);

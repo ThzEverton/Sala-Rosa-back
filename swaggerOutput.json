@@ -11,16 +11,6 @@
     }
   ],
   "paths": {
-    "/health": {
-      "get": {
-        "description": "",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
     "/autenticacao/token": {
       "post": {
         "tags": [

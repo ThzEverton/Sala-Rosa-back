@@ -8,7 +8,7 @@ let ctrl = new EstoqueController();
 let auth = new AuthMiddleware();
 
 // Listar movimentações de estoque
-router.get("/", auth.validarToken, (req, res) => {
+router.get("/", auth.validarToken,auth.somenteGerente, (req, res) => {
   /* #swagger.security = [{
       "bearerAuth": []
   }]
@@ -19,7 +19,7 @@ router.get("/", auth.validarToken, (req, res) => {
 });
 
 // Criar movimentação de estoque
-router.post("/", auth.validarToken, (req, res) => {
+router.post("/", auth.validarToken,auth.somenteGerente, (req, res) => {
   /* #swagger.security = [{
       "bearerAuth": []
   }]
