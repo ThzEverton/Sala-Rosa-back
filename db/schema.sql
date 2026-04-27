@@ -84,7 +84,7 @@ CREATE TABLE excecoes_dia (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
   PRIMARY KEY (id)
-) ENGINE=InnoDB;;
+) ENGINE=InnoDB;
 
 -- =========================
 -- BLOQUEIOS_SLOT

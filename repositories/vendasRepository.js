@@ -101,27 +101,33 @@ export default class VendasRepository {
     return rows.map(r => this.toMapItem(r));
   }
 
-  async criarVenda(venda, itensPayload = []) {
-    if (!itensPayload || itensPayload.length === 0)
-      throw new Error("Venda precisa de ao menos 1 item");
+ async criarVenda(venda, itensPayload = []) {
+  if (!itensPayload || itensPayload.length === 0)
+    throw new Error("Venda precisa de ao menos 1 item");
 
-    const tx = await this.#banco.getConnectionTx();
-    try {
-      // 1) insert venda — id omitido, AUTO_INCREMENT do banco
-      const vendaResult = await tx.query(
-        `insert into vendas
-          (usuario_responsavel_id, atendimento_id, data, valor_total, forma_pagto, status_pagto, observacao)
-         values (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          venda.usuarioResponsavel.id || null,
-          venda.atendimento?.id || null,
-          venda.data,
-          venda.valorTotal,
-          venda.formaPagto || null,
-          venda.statusPagto || "pendente",
-          venda.observacao || null,
-        ]
-      );
+  // ✅ FIX: falha rápido antes de abrir transação
+  if (!venda.usuarioResponsavel?.id) {
+    throw new Error("Usuário responsável não identificado. Faça login novamente.");
+  }
+
+  const tx = await this.#banco.getConnectionTx();
+  try {
+    // ✅ FEAT: inclui cliente_id no insert
+    const vendaResult = await tx.query(
+      `insert into vendas
+        (usuario_responsavel_id, atendimento_id, cliente_id, data, valor_total, forma_pagto, status_pagto, observacao)
+       values (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        venda.usuarioResponsavel.id,
+        venda.atendimento?.id || null,
+        venda.clienteId || null,       // ← novo
+        venda.data,
+        venda.valorTotal,
+        venda.formaPagto || null,
+        venda.statusPagto || "pendente",
+        venda.observacao || null,
+      ]
+    );
 
       const vendaId = vendaResult.insertId;
 
