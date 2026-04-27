@@ -256,15 +256,6 @@ export default class AgendaController {
             normalizarHora(s.slot) === hora &&
             String(s.status).trim().toLowerCase() === "ativo";
 
-          if (match) {
-            console.log("MATCH ENCONTRADO:", {
-              dataSlot: normalizarData(s.data),
-              horaSlot: normalizarHora(s.slot),
-              statusSlot: String(s.status).trim().toLowerCase(),
-              hora,
-            });
-          }
-
           return match;
         });
 

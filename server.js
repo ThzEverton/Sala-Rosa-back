@@ -18,6 +18,7 @@ import turmasRoutes from "./routes/turmasRoutes.js";
 import vendasRoutes from "./routes/vendasRoutes.js";
 import estoqueRoutes from "./routes/estoqueRoutes.js";
 import financeiroRoutes from "./routes/financeiroRoutes.js";
+import disparos from "./routes/disparos.js";
 
 //import { errorHandler } from "./middlewares/errorHandler.js";
 const app = express();
@@ -46,6 +47,7 @@ app.use("/turmas", turmasRoutes);
 app.use("/vendas", vendasRoutes);
 app.use("/estoque", estoqueRoutes);
 app.use("/financeiro", financeiroRoutes);
+app.use("/disparos", disparos);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`backend em execução em http://localhost:${PORT}`));
