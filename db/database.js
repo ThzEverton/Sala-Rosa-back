@@ -1,22 +1,18 @@
-import mysql from 'mysql2'
+import mysql from "mysql2";
+
+const pool = mysql.createPool({
+  host: "127.0.0.1",
+  database: "salarosa",
+  user: "root",
+  password: "",
+  waitForConnections: true,
+  connectionLimit: 2,
+  queueLimit: 0,
+  idleTimeout: 30000
+});
 
 export default class Database {
-  #pool;
-
-  constructor() {
-    this.#pool = mysql.createPool({
-      host: '127.0.0.1',
-      database: 'salarosa',
-      user: 'root',
-      password: '',
-      idleTimeout: 30000,
-      connectionLimit: 50
-    });
-  }
-
-
   ExecutaComando(sql, valores = []) {
-    const pool = this.#pool;
     return new Promise((res, rej) => {
       pool.query(sql, valores, (error, results) => {
         if (error) rej(error);
@@ -26,7 +22,6 @@ export default class Database {
   }
 
   ExecutaComandoNonQuery(sql, valores = []) {
-    const pool = this.#pool;
     return new Promise((res, rej) => {
       pool.query(sql, valores, (error, results) => {
         if (error) rej(error);
@@ -36,7 +31,6 @@ export default class Database {
   }
 
   ExecutaComandoLastInserted(sql, valores = []) {
-    const pool = this.#pool;
     return new Promise((res, rej) => {
       pool.query(sql, valores, (error, results) => {
         if (error) rej(error);
@@ -45,9 +39,7 @@ export default class Database {
     });
   }
 
-  // ✅ transação real (mesma conexão)
   async getConnectionTx() {
-    const pool = this.#pool;
     const conn = await new Promise((res, rej) => {
       pool.getConnection((err, connection) => {
         if (err) rej(err);
@@ -55,19 +47,34 @@ export default class Database {
       });
     });
 
-    const exec = (sql, valores = []) => new Promise((res, rej) => {
-      conn.query(sql, valores, (error, results) => {
-        if (error) rej(error);
-        else res(results);
+    const exec = (sql, valores = []) =>
+      new Promise((res, rej) => {
+        conn.query(sql, valores, (error, results) => {
+          if (error) rej(error);
+          else res(results);
+        });
       });
-    });
 
     await exec("START TRANSACTION");
 
     return {
       query: exec,
-      commit: async () => { await exec("COMMIT"); conn.release(); },
-      rollback: async () => { await exec("ROLLBACK"); conn.release(); },
+
+      commit: async () => {
+        try {
+          await exec("COMMIT");
+        } finally {
+          conn.release();
+        }
+      },
+
+      rollback: async () => {
+        try {
+          await exec("ROLLBACK");
+        } finally {
+          conn.release();
+        }
+      }
     };
   }
 }
