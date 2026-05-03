@@ -5,12 +5,14 @@ import QRCode from 'qrcode'
 let estado = 'aguardando' // 'aguardando' | 'qr_pendente' | 'pronto' | 'erro'
 let qrImagemBase64 = null  // imagem PNG em base64 para o frontend
 
-const client = new Client({
+
+ const client = new Client({
   authStrategy: new LocalAuth({ dataPath: '.wwebjs_auth' }),
   puppeteer: {
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    headless: true,
-  },
+  executablePath: '/snap/bin/chromium',
+  args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  headless: true,
+},
 })
 
 client.on('qr', async (qr) => {

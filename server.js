@@ -25,7 +25,12 @@ const app = express();
 
 // ✅ CORS correto (dev)
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:5000"],
+  origin: [
+    "http://localhost:3000",
+    "http://localhost:5000",
+    "http://168.75.99.29",
+    "http://168.75.99.29:3000"
+  ],
   credentials: true,
 }));
 

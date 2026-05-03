@@ -1,16 +1,16 @@
 import mysql from "mysql2";
 
 const pool = mysql.createPool({
-  host: "127.0.0.1",
+  host: "10.0.0.143",
   database: "salarosa",
-  user: "root",
-  password: "",
+  user: "everton",
+  password: "Everton2006$",
+  port: 3306,
   waitForConnections: true,
-  connectionLimit: 2,
+  connectionLimit: 5,
   queueLimit: 0,
   idleTimeout: 30000
 });
-
 export default class Database {
   ExecutaComando(sql, valores = []) {
     return new Promise((res, rej) => {
