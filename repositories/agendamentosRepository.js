@@ -181,7 +181,9 @@ export default class AgendamentosRepository {
           let aplicaNoDia = false;
 
           if (Number(exc.recorrente) === 1) {
-            const diasSemana = exc.dias_semana ? String(exc.dias_semana).split(",").map(Number) : [];
+            const diasSemanaRaw = exc.dias_semana ? String(exc.dias_semana) : "";
+            if (diasSemanaRaw.startsWith("INATIVO|")) continue;
+            const diasSemana = diasSemanaRaw ? diasSemanaRaw.split(",").map(Number) : [];
             aplicaNoDia = diasSemana.includes(dow);
           } else {
             aplicaNoDia = String(exc.data).slice(0, 10) === data;
@@ -339,7 +341,9 @@ export default class AgendamentosRepository {
           let aplicaNoDia = false;
 
           if (Number(exc.recorrente) === 1) {
-            const diasSemana = exc.dias_semana ? String(exc.dias_semana).split(",").map(Number) : [];
+            const diasSemanaRaw = exc.dias_semana ? String(exc.dias_semana) : "";
+            if (diasSemanaRaw.startsWith("INATIVO|")) continue;
+            const diasSemana = diasSemanaRaw ? diasSemanaRaw.split(",").map(Number) : [];
             aplicaNoDia = diasSemana.includes(dow);
           } else {
             aplicaNoDia = String(exc.data).slice(0, 10) === novaData;
@@ -470,7 +474,9 @@ export default class AgendamentosRepository {
           let aplicaNoDia = false
 
           if (Number(exc.recorrente) === 1) {
-            const diasSemana = exc.dias_semana ? String(exc.dias_semana).split(',').map(Number) : []
+            const diasSemanaRaw = exc.dias_semana ? String(exc.dias_semana) : ""
+            if (diasSemanaRaw.startsWith("INATIVO|")) continue
+            const diasSemana = diasSemanaRaw ? diasSemanaRaw.split(',').map(Number) : []
             aplicaNoDia = diasSemana.includes(dow)
           } else {
             aplicaNoDia = String(exc.data).slice(0, 10) === data

@@ -143,7 +143,14 @@ export default class AgendaRepository {
   }
 
   async toggleAtivoExcecao(id) {
-    const sql = `UPDATE excecoes_dia SET ativo = NOT ativo WHERE id = ?`;
+    const sql = `
+      update excecoes_dia
+      set dias_semana = case
+        when dias_semana like 'INATIVO|%' then substring(dias_semana, 9)
+        else concat('INATIVO|', coalesce(dias_semana, ''))
+      end
+      where id = ? and recorrente = 1
+    `;
     return await this.#banco.ExecutaComandoNonQuery(sql, [id]);
   }
 
@@ -168,8 +175,10 @@ export default class AgendaRepository {
     e.horaInicioExcecao = row["hora_inicio_excecao"];
     e.horaFimExcecao = row["hora_fim_excecao"];
     e.recorrente = row["recorrente"];
-    e.diasSemana = row["dias_semana"];
-    e.ativo = row["ativo"] ?? 1; // padrão ativo caso coluna não exista ainda
+    const diasSemana = row["dias_semana"] ? String(row["dias_semana"]) : null;
+    const inativo = diasSemana?.startsWith("INATIVO|");
+    e.diasSemana = inativo ? diasSemana.slice(8) : diasSemana;
+    e.ativo = inativo ? 0 : 1;
     return e;
   }
 

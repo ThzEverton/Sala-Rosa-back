@@ -129,6 +129,8 @@ Turmas:
 - Podem ter `codigo_convite`, `capacidade_maxima` e varios participantes.
 - Status comuns: `pendente_aprovacao`, `aprovado`, `recusado`, `cancelado`.
 - Participantes ficam em `agendamento_participantes`.
+- Regra de negocio: se uma turma ficar com exatamente 1 participante apos remocao feita pela gerente, o sistema deve pedir aprovacao da gerente antes de virar agendamento `individual`, com `capacidade_maxima = 1`, sem `codigo_convite` e status `confirmado` quando estava `aprovado`/`pendente_aprovacao`.
+- Gerente pode adicionar uma cliente como participante pelo detalhe da turma; nesse caso o back deve usar `req.body.userId`, nao o usuario logado.
 
 Cancelamento/remarcacao:
 
