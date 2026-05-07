@@ -13,12 +13,47 @@ export default class VendasRepository {
     this.#banco = new Database();
   }
 
+  async #temColunaClienteId() {
+    const rows = await this.#banco.ExecutaComando(
+      `select 1
+       from information_schema.columns
+       where table_schema = database()
+         and table_name = 'vendas'
+         and column_name = 'cliente_id'
+       limit 1`
+    );
+    return rows.length > 0;
+  }
+
+  async #garantirColunaClienteId() {
+    if (await this.#temColunaClienteId()) return;
+
+    await this.#banco.ExecutaComando(
+      `alter table vendas
+       add column cliente_id int null after atendimento_id,
+       add key idx_v_cliente (cliente_id),
+       add constraint fk_v_cliente
+         foreign key (cliente_id) references users(id)
+         on delete set null
+         on update cascade`
+    );
+  }
+
   async listar() {
+    const temClienteId = await this.#temColunaClienteId();
+    const camposCliente = temClienteId
+      ? `v.cliente_id, c.nome as cliente_nome, c.email as cliente_email, c.telefone as cliente_telefone,`
+      : `null as cliente_id, null as cliente_nome, null as cliente_email, null as cliente_telefone,`;
+    const joinCliente = temClienteId
+      ? `left join users c on c.id = v.cliente_id`
+      : ``;
+
     const sqlVendas = `
       select
         v.id,
         v.usuario_responsavel_id,
         v.atendimento_id,
+        ${camposCliente}
         v.data,
         v.valor_total,
         v.forma_pagto,
@@ -28,6 +63,7 @@ export default class VendasRepository {
         u.nome as usuario_nome
       from vendas v
       left join users u on u.id = v.usuario_responsavel_id
+      ${joinCliente}
       order by v.data desc, v.created_at desc
     `;
     const vendaRows = await this.#banco.ExecutaComando(sqlVendas, []);
@@ -70,10 +106,19 @@ export default class VendasRepository {
   }
 
   async obterPorId(id) {
+    const temClienteId = await this.#temColunaClienteId();
+    const camposCliente = temClienteId
+      ? `v.cliente_id, c.nome as cliente_nome, c.email as cliente_email, c.telefone as cliente_telefone,`
+      : `null as cliente_id, null as cliente_nome, null as cliente_email, null as cliente_telefone,`;
+    const joinCliente = temClienteId
+      ? `left join users c on c.id = v.cliente_id`
+      : ``;
+
     const sql = `
-      select v.*, u.nome as usuario_nome
+      select v.*, ${camposCliente} u.nome as usuario_nome
       from vendas v
       left join users u on u.id = v.usuario_responsavel_id
+      ${joinCliente}
       where v.id = ? limit 1
     `;
     const rows = await this.#banco.ExecutaComando(sql, [id]);
@@ -110,17 +155,26 @@ export default class VendasRepository {
     throw new Error("Usuário responsável não identificado. Faça login novamente.");
   }
 
+  const temClienteVinculado = Boolean(venda.clienteId);
+  if (temClienteVinculado) {
+    await this.#garantirColunaClienteId();
+  }
+
   const tx = await this.#banco.getConnectionTx();
   try {
-    // ✅ FEAT: inclui cliente_id no insert
+    // Venda avulsa pode ficar sem atendimento vinculado.
+    const colunasCliente = temClienteVinculado ? ", cliente_id" : "";
+    const valoresCliente = temClienteVinculado ? ", ?" : "";
+    const paramsCliente = temClienteVinculado ? [venda.clienteId] : [];
+
     const vendaResult = await tx.query(
       `insert into vendas
-        (usuario_responsavel_id, atendimento_id, cliente_id, data, valor_total, forma_pagto, status_pagto, observacao)
-       values (?, ?, ?, ?, ?, ?, ?, ?)`,
+        (usuario_responsavel_id, atendimento_id${colunasCliente}, data, valor_total, forma_pagto, status_pagto, observacao)
+       values (?, ?${valoresCliente}, ?, ?, ?, ?, ?)`,
       [
         venda.usuarioResponsavel.id,
         venda.atendimento?.id || null,
-        venda.clienteId || null,       // ← novo
+        ...paramsCliente,
         venda.data,
         venda.valorTotal,
         venda.formaPagto || null,
@@ -247,6 +301,15 @@ export default class VendasRepository {
 
     v.atendimento = new Agendamento();
     v.atendimento.id = row["atendimento_id"] || null;
+
+    v.clienteId = row["cliente_id"] || null;
+    if (row["cliente_id"]) {
+      v.cliente = new Usuario();
+      v.cliente.id = row["cliente_id"];
+      v.cliente.nome = row["cliente_nome"] || null;
+      v.cliente.email = row["cliente_email"] || null;
+      v.cliente.telefone = row["cliente_telefone"] || null;
+    }
 
     v.data = row["data"];
     v.valorTotal = Number(row["valor_total"]);

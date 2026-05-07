@@ -121,13 +121,13 @@ VALUES
 -- VENDAS
 -- =========================
 INSERT INTO vendas
-(usuario_responsavel_id, atendimento_id, data, valor_total, forma_pagto, status_pagto, observacao)
+(usuario_responsavel_id, atendimento_id, cliente_id, data, valor_total, forma_pagto, status_pagto, observacao)
 VALUES
-(1, 1, '2026-03-20', 165.00, 'pix', 'pago', 'Venda de serviço com produto adicional.'),
-(1, 3, '2026-03-21', 400.00, 'cartao', 'pago', 'Venda referente à turma de workshop.'),
-(1, 5, '2026-03-23', 98.00, 'dinheiro', 'pago', 'Spa dos pés com item complementar.'),
-(1, NULL, '2026-03-24', 94.90, 'pix', 'pendente', 'Venda avulsa de produtos.'),
-(1, 8, '2026-03-26', 120.00, 'cartao', 'pago', 'Atendimento facial.');
+(1, 1, 4, '2026-03-20', 165.00, 'pix', 'pago', 'Venda de serviço com produto adicional.'),
+(1, 3, 2, '2026-03-21', 400.00, 'cartao', 'pago', 'Venda referente à turma de workshop.'),
+(1, 5, 7, '2026-03-23', 98.00, 'dinheiro', 'pago', 'Spa dos pés com item complementar.'),
+(1, NULL, 6, '2026-03-24', 94.90, 'pix', 'pendente', 'Venda avulsa de produtos.'),
+(1, 8, 6, '2026-03-26', 120.00, 'cartao', 'pago', 'Atendimento facial.');
 
 -- =========================
 -- VENDA_ITENS
