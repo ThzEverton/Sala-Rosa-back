@@ -1,9 +1,11 @@
 import express from 'express'
 import AuthMiddleware from '../middlewares/authMiddleware.js'
-import { getWhatsAppClient, getStatus } from '../services/whatsappService.js'
+import Database from '../db/database.js'
+import { getWhatsAppClient, getStatus, iniciarWhatsApp, pararWhatsApp } from '../services/whatsappService.js'
 
 const router = express.Router()
 const auth = new AuthMiddleware()
+const banco = new Database()
 
 function normalizarTelefoneBR(tel) {
   if (!tel) return null
@@ -35,23 +37,57 @@ router.get('/preview', auth.validarToken, auth.somenteGerente, async (req, res) 
   if (!data) return res.status(400).json({ error: 'data é obrigatório' })
 
   try {
-    const response = await fetch(
-      `http://localhost:5000/agendamentos?data=${data}`,
-      { headers: req.headers }
+    const rows = await banco.ExecutaComando(
+      `
+      SELECT
+        a.id AS agendamento_id,
+        ap.user_id,
+        COALESCE(ap.nome_no_momento, u.nome) AS nome_cliente,
+        u.telefone,
+        s.nome AS servico,
+        a.data,
+        a.hora_inicio,
+        a.tipo,
+        (
+          SELECT COUNT(*)
+          FROM agendamento_participantes ap_count
+          WHERE ap_count.agendamento_id = a.id
+        ) AS total_participantes
+      FROM agendamentos a
+      INNER JOIN servicos s ON s.id = a.servico_id
+      LEFT JOIN agendamento_participantes ap ON ap.agendamento_id = a.id
+      LEFT JOIN users u ON u.id = ap.user_id
+      WHERE a.data = ?
+        AND a.status IN ('confirmado', 'aprovado', 'pendente')
+        AND (
+          a.tipo = 'individual'
+          OR (
+            a.tipo = 'turma'
+            AND (
+              SELECT COUNT(*)
+              FROM agendamento_participantes ap_count
+              WHERE ap_count.agendamento_id = a.id
+            ) >= 5
+          )
+        )
+      ORDER BY a.hora_inicio ASC, a.id ASC, nome_cliente ASC
+      `,
+      [data]
     )
-    const agendamentos = await response.json()
 
-    const lista = (agendamentos?.data || agendamentos || []).map((a) => ({
-      agendamento_id: a.id,
-      user_id: a.participanteId || a.criadoPorId,
-      nome_cliente: a.participante?.nome || a.criadoPor?.nome,
-      telefone: a.participante?.telefone || a.criadoPor?.telefone,
-      servico: a.servico?.nome,
-      data: a.data,
-      hora_inicio: a.horaInicio,
-      tipo: a.tipo,
-      total_participantes: a.totalParticipantes || 1,
-    }))
+    const lista = rows
+      .filter((r) => r.user_id && r.nome_cliente)
+      .map((r) => ({
+        agendamento_id: r.agendamento_id,
+        user_id: r.user_id,
+        nome_cliente: r.nome_cliente,
+        telefone: r.telefone,
+        servico: r.servico,
+        data: r.data,
+        hora_inicio: r.hora_inicio,
+        tipo: r.tipo,
+        total_participantes: Number(r.total_participantes || 1),
+      }))
 
     res.json({ data: lista })
   } catch (err) {
@@ -67,6 +103,26 @@ router.get('/status', auth.validarToken, auth.somenteGerente, (req, res) => {
 })
 
 // POST /disparos/executar — dispara todas as mensagens pelo servidor
+router.post('/conectar', auth.validarToken, auth.somenteGerente, async (req, res) => {
+  try {
+    await iniciarWhatsApp()
+    res.json(getStatus())
+  } catch (err) {
+    console.error('Erro ao conectar WhatsApp:', err)
+    res.status(500).json({ error: 'Erro ao iniciar WhatsApp', detalhe: err.message })
+  }
+})
+
+router.post('/desconectar', auth.validarToken, auth.somenteGerente, async (req, res) => {
+  try {
+    await pararWhatsApp()
+    res.json(getStatus())
+  } catch (err) {
+    console.error('Erro ao desconectar WhatsApp:', err)
+    res.status(500).json({ error: 'Erro ao desconectar WhatsApp', detalhe: err.message })
+  }
+})
+
 router.post('/executar', auth.validarToken, auth.somenteGerente, async (req, res) => {
   const { destinatarios } = req.body
   if (!Array.isArray(destinatarios) || !destinatarios.length) {
