@@ -27,17 +27,20 @@ export default class AgendamentosRepository {
         u.email    as criado_por_email,
         u.telefone as criado_por_telefone,
         ap.user_id         as participante_id,
-        ap.nome_no_momento as participante_nome
+        ap.nome_no_momento as participante_nome,
+        p.email            as participante_email,
+        p.telefone         as participante_telefone
       from agendamentos a
       inner join servicos s on s.id = a.servico_id
       left  join users   u on u.id  = a.criado_por_user_id
       left  join agendamento_participantes ap on ap.agendamento_id = a.id
+      left  join users   p on p.id  = ap.user_id
       where 1=1
     `;
 
     const vals = [];
 
-    if (userId) { sql += ` and a.criado_por_user_id = ? `; vals.push(userId); }
+    if (userId) { sql += ` and ap.user_id = ? `; vals.push(userId); }
     if (data)   { sql += ` and a.data = ? `;               vals.push(data);   }
     if (status) { sql += ` and a.status = ? `;             vals.push(status); }
     if (tipo)   { sql += ` and a.tipo = ? `;               vals.push(tipo);   }
@@ -65,11 +68,14 @@ export default class AgendamentosRepository {
         u.email    as criado_por_email,
         u.telefone as criado_por_telefone,
         ap.user_id         as participante_id,
-        ap.nome_no_momento as participante_nome
+        ap.nome_no_momento as participante_nome,
+        p.email            as participante_email,
+        p.telefone         as participante_telefone
       from agendamentos a
       inner join servicos s on s.id = a.servico_id
       left  join users   u on u.id  = a.criado_por_user_id
       left  join agendamento_participantes ap on ap.agendamento_id = a.id
+      left  join users   p on p.id  = ap.user_id
       where a.id = ?
       limit 1
     `;
@@ -581,6 +587,8 @@ export default class AgendamentosRepository {
     a.participante          = new Usuario();
     a.participante.id       = row["participante_id"];
     a.participante.nome     = row["participante_nome"];
+    a.participante.email    = row["participante_email"];
+    a.participante.telefone = row["participante_telefone"];
   } else {
     a.participante = null;
   }

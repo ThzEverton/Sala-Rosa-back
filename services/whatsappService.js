@@ -1,4 +1,4 @@
-import pkg from 'whatsapp-web.js'
+/* import pkg from 'whatsapp-web.js'
 const { Client, LocalAuth } = pkg
 import QRCode from 'qrcode'
 
@@ -40,4 +40,64 @@ client.on('disconnected', () => {
 client.initialize()
 
 export function getWhatsAppClient() { return client }
-export function getStatus() { return { estado, qr: qrImagemBase64 } }
+export function getStatus() { return { estado, qr: qrImagemBase64 } } */
+
+import "dotenv/config";
+import pkg from "whatsapp-web.js";
+const { Client, LocalAuth } = pkg;
+import QRCode from "qrcode";
+
+let estado = "desativado"; // desativado | aguardando | qr_pendente | pronto | erro
+let qrImagemBase64 = null;
+
+const WHATSAPP_ENABLED = process.env.WHATSAPP_ENABLED === "true";
+
+const client = new Client({
+  authStrategy: new LocalAuth({ dataPath: ".wwebjs_auth" }),
+  puppeteer: {
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    headless: true,
+  },
+});
+
+client.on("qr", async (qr) => {
+  estado = "qr_pendente";
+  qrImagemBase64 = await QRCode.toDataURL(qr);
+  console.log("⚠️ QR Code gerado — escaneie pela interface ou pelo terminal.");
+});
+
+client.on("ready", () => {
+  estado = "pronto";
+  qrImagemBase64 = null;
+  console.log("✅ WhatsApp conectado!");
+});
+
+client.on("auth_failure", () => {
+  estado = "erro";
+  qrImagemBase64 = null;
+});
+
+client.on("disconnected", () => {
+  estado = "aguardando";
+  qrImagemBase64 = null;
+
+  if (WHATSAPP_ENABLED) {
+    client.initialize();
+  }
+});
+
+if (WHATSAPP_ENABLED) {
+  estado = "aguardando";
+  client.initialize();
+} else {
+  estado = "desativado";
+  console.log("⚠️ WhatsApp desativado neste ambiente.");
+}
+
+export function getWhatsAppClient() {
+  return client;
+}
+
+export function getStatus() {
+  return { estado, qr: qrImagemBase64 };
+}

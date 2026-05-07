@@ -55,10 +55,21 @@ export default class AgendaRepository {
 
     async listarSlotsOcupadosPorData(data) {
   const sql = `
-    select data, slot, status
+    select
+      agendamento_slots.data,
+      agendamento_slots.slot,
+      agendamento_slots.status,
+      ap.user_id as cliente_id,
+      coalesce(ap.nome_no_momento, u.nome) as cliente_nome,
+      u.email as cliente_email,
+      u.telefone as cliente_telefone
     from agendamento_slots
-    where data = ?
-      and lower(trim(status)) in ('ativo', 'agendado', 'confirmado')
+    left join agendamento_participantes ap
+      on ap.agendamento_id = agendamento_slots.agendamento_id
+    left join users u
+      on u.id = ap.user_id
+    where agendamento_slots.data = ?
+      and lower(trim(agendamento_slots.status)) in ('ativo', 'agendado', 'confirmado')
   `;
 
   return await this.#banco.ExecutaComando(sql, [String(data).slice(0, 10)]);
