@@ -1,7 +1,13 @@
 import express from 'express'
 import AuthMiddleware from '../middlewares/authMiddleware.js'
 import Database from '../db/database.js'
-import { getWhatsAppClient, getStatus, iniciarWhatsApp, pararWhatsApp } from '../services/whatsappService.js'
+import {
+  aguardarWhatsAppPronto,
+  getStatus,
+  iniciarWhatsApp,
+  pararWhatsApp,
+  enviarMensagemWhatsApp,
+} from '../services/whatsappService.js'
 
 const router = express.Router()
 const auth = new AuthMiddleware()
@@ -51,6 +57,12 @@ function registrarDisparoEnviado(d, telefone) {
   })
 }
 
+function erroSessaoWhatsApp(err) {
+  return /WhatsApp Web perdeu a sessao interna|detached\s+frame|execution context was destroyed|target closed|session closed|page crashed|browser.*disconnected|protocol error/i.test(
+    err?.message || ''
+  )
+}
+
 function criarJob(destinatarios) {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
   const job = {
@@ -75,7 +87,7 @@ async function executarJobDisparo(job, destinatarios) {
   job.status = 'enviando'
 
   try {
-    const client = getWhatsAppClient()
+    await aguardarWhatsAppPronto()
 
     for (const d of destinatarios) {
       job.atualNome = d.nome_cliente || null
@@ -91,13 +103,14 @@ async function executarJobDisparo(job, destinatarios) {
         `de ${d.servico} no dia ${formatarData(d.data)} às ${formatarHora(d.hora_inicio)}.`
 
       try {
-        await client.sendMessage(`${tel}@c.us`, mensagem)
+        await enviarMensagemWhatsApp(`${tel}@c.us`, mensagem)
         job.enviados++
         registrarDisparoEnviado(d, tel)
 
         await sleep(500)
       } catch (err) {
         job.erros.push({ nome: d.nome_cliente, motivo: err.message })
+        if (erroSessaoWhatsApp(err)) throw err
       }
     }
 
@@ -154,14 +167,7 @@ router.get('/preview', auth.validarToken, auth.somenteGerente, async (req, res) 
         AND a.status IN ('confirmado', 'aprovado', 'pendente')
         AND (
           a.tipo = 'individual'
-          OR (
-            a.tipo = 'turma'
-            AND (
-              SELECT COUNT(*)
-              FROM agendamento_participantes ap_count
-              WHERE ap_count.agendamento_id = a.id
-            ) >= 5
-          )
+          OR a.tipo = 'turma'
         )
       ORDER BY a.hora_inicio ASC, a.id ASC, nome_cliente ASC
       `,

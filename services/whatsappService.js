@@ -1,4 +1,7 @@
 import "dotenv/config";
+import fs from "fs";
+import path from "path";
+import { execFileSync } from "child_process";
 import pkg from "whatsapp-web.js";
 import QRCode from "qrcode";
 
@@ -6,6 +9,10 @@ const { Client, LocalAuth } = pkg;
 
 const WHATSAPP_ENABLED = true;
 const CHROMIUM_PATH = "/snap/bin/chromium";
+const AUTH_DATA_PATH = ".wwebjs_auth";
+const SESSION_PATH = path.join(process.cwd(), AUTH_DATA_PATH, "session");
+const ERRO_SESSAO_QUEBRADA =
+  "WhatsApp Web perdeu a sessao interna. Clique em Sair do WhatsApp, conecte novamente e tente o disparo de novo.";
 
 let estado = WHATSAPP_ENABLED ? "aguardando" : "desativado"; // desativado | aguardando | qr_pendente | pronto | desconectado | erro
 let qrImagemBase64 = null;
@@ -23,8 +30,38 @@ function limparTimerReconexao() {
   }
 }
 
+function removerLocksSessao() {
+  for (const name of ["SingletonCookie", "SingletonLock", "SingletonSocket"]) {
+    try {
+      fs.rmSync(path.join(SESSION_PATH, name), { force: true, recursive: true });
+    } catch {
+      // Lock pode estar em uso se o Chromium ainda estiver encerrando.
+    }
+  }
+}
+
+function encerrarChromiumSessao() {
+  if (process.platform === "win32") return;
+
+  try {
+    execFileSync("pkill", ["-f", SESSION_PATH], { stdio: "ignore" });
+  } catch {
+    // Nao havia Chromium usando esta sessao.
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function eventoAtual(geracao) {
   return geracao === geracaoClient;
+}
+
+function erroSessaoQuebrada(err) {
+  return /detached\s+frame|execution context was destroyed|target closed|session closed|page crashed|browser.*disconnected|protocol error/i.test(
+    err?.message || "",
+  );
 }
 
 async function comTimeout(promise, ms) {
@@ -43,7 +80,9 @@ async function comTimeout(promise, ms) {
 
 function criarClient(geracao) {
   const novoClient = new Client({
-    authStrategy: new LocalAuth({ dataPath: ".wwebjs_auth" }),
+    authStrategy: new LocalAuth({ dataPath: AUTH_DATA_PATH }),
+    takeoverOnConflict: true,
+    takeoverTimeoutMs: 0,
     puppeteer: {
       executablePath: CHROMIUM_PATH,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -105,6 +144,11 @@ function criarClient(geracao) {
     }, 10000);
   });
 
+  novoClient.on("change_state", (state) => {
+    if (!eventoAtual(geracao)) return;
+    console.log("[WhatsApp] Estado alterado:", state);
+  });
+
   return novoClient;
 }
 
@@ -125,6 +169,8 @@ export async function iniciarWhatsApp() {
   if (inicializando) return true;
 
   limparTimerReconexao();
+  encerrarChromiumSessao();
+  removerLocksSessao();
   inicializando = true;
   estado = "aguardando";
   qrImagemBase64 = null;
@@ -145,6 +191,103 @@ export async function iniciarWhatsApp() {
     }
     throw err;
   }
+}
+
+export async function aguardarWhatsAppPronto(timeoutMs = 45000) {
+  const inicio = Date.now();
+
+  while (Date.now() - inicio < timeoutMs) {
+    if (estado === "pronto" && client) return true;
+    if (["erro", "desativado"].includes(estado)) {
+      throw new Error(ultimoErro || "WhatsApp nao ficou pronto.");
+    }
+
+    await sleep(500);
+  }
+
+  throw new Error(`WhatsApp nao ficou pronto a tempo. Estado atual: ${estado}.`);
+}
+
+export async function reiniciarWhatsApp() {
+  if (!WHATSAPP_ENABLED) {
+    estado = "desativado";
+    qrImagemBase64 = null;
+    ultimoErro = null;
+    return false;
+  }
+
+  reconexaoAutomatica = true;
+  limparTimerReconexao();
+  qrImagemBase64 = null;
+  ultimoErro = null;
+  geracaoClient++;
+
+  const atual = client;
+  client = null;
+  inicializando = false;
+  estado = "aguardando";
+
+  if (atual) {
+    try {
+      await comTimeout(atual.destroy(), 8000);
+    } catch (err) {
+      console.warn("[WhatsApp] Destroy durante reinicio nao finalizou:", err?.message || err);
+    }
+  }
+
+  await iniciarWhatsApp();
+  await aguardarWhatsAppPronto();
+  return true;
+}
+
+async function validarWhatsAppPronto() {
+  await aguardarWhatsAppPronto();
+
+  const atual = client;
+  if (!atual) throw new Error("WhatsApp nao conectado.");
+
+  try {
+    if (atual.pupBrowser && !atual.pupBrowser.isConnected()) {
+      throw new Error("Browser do WhatsApp desconectado.");
+    }
+
+    if (!atual.pupPage || atual.pupPage.isClosed()) {
+      throw new Error("Pagina do WhatsApp fechada.");
+    }
+
+    const state = await comTimeout(atual.getState(), 10000);
+    if (state && ["CONFLICT", "UNPAIRED", "UNPAIRED_IDLE"].includes(state)) {
+      throw new Error(`WhatsApp em estado invalido: ${state}.`);
+    }
+
+    return atual;
+  } catch (err) {
+    if (!erroSessaoQuebrada(err)) throw err;
+    ultimoErro = ERRO_SESSAO_QUEBRADA;
+    throw new Error(ERRO_SESSAO_QUEBRADA);
+  }
+}
+
+export async function enviarMensagemWhatsApp(chatId, mensagem) {
+  let ultimoEnvioErro = null;
+
+  for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    try {
+      const atual = await validarWhatsAppPronto();
+      return await atual.sendMessage(chatId, mensagem);
+    } catch (err) {
+      ultimoEnvioErro = err;
+      if (!erroSessaoQuebrada(err) && err?.message !== ERRO_SESSAO_QUEBRADA) throw err;
+      if (tentativa === 2) break;
+
+      console.warn("[WhatsApp] Sessao interna quebrou durante envio. Reiniciando client.");
+      await reiniciarWhatsApp();
+      await sleep(2000);
+    }
+  }
+
+  ultimoErro = ERRO_SESSAO_QUEBRADA;
+  throw new Error(ultimoEnvioErro?.message || ERRO_SESSAO_QUEBRADA);
 }
 
 export async function pararWhatsApp() {

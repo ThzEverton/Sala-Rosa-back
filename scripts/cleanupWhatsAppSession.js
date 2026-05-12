@@ -19,12 +19,26 @@ function runPowerShell(command) {
   }
 }
 
+function runUnix(command, args) {
+  if (process.platform === "win32") return;
+
+  try {
+    execFileSync(command, args, { stdio: "ignore" });
+  } catch {
+    // Processo pode nao existir ou ja ter encerrado.
+  }
+}
+
 function stopOldBackend() {
   runPowerShell(`
     Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" |
-      Where-Object { $_.CommandLine -like '*swagger.js*' } |
+      Where-Object { $_.CommandLine -like '*swagger.js*' -or $_.CommandLine -like '*server.js*' } |
       ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
   `);
+
+  runUnix("pkill", ["-f", "node swagger.js"]);
+  runUnix("pkill", ["-f", path.join(root, "server.js")]);
+  runUnix("pkill", ["-f", "node server.js"]);
 }
 
 function stopPuppeteerChrome() {
@@ -34,6 +48,8 @@ function stopPuppeteerChrome() {
       Where-Object { $_.CommandLine -like '*${authEscaped}*' } |
       ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
   `);
+
+  runUnix("pkill", ["-f", path.join(root, ".wwebjs_auth", "session")]);
 }
 
 function removeChromeLocks() {
