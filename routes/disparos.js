@@ -6,6 +6,8 @@ import { getWhatsAppClient, getStatus, iniciarWhatsApp, pararWhatsApp } from '..
 const router = express.Router()
 const auth = new AuthMiddleware()
 const banco = new Database()
+const jobsDisparo = new Map()
+const TEMPO_RETENCAO_JOB_MS = 60 * 60 * 1000
 
 function normalizarTelefoneBR(tel) {
   if (!tel) return null
@@ -29,6 +31,89 @@ function formatarHora(timeStr) {
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
+}
+
+function criarJob(destinatarios, authorization) {
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+  const job = {
+    id,
+    status: 'pendente',
+    total: destinatarios.length,
+    enviados: 0,
+    erros: [],
+    atualNome: null,
+    criadoEm: new Date().toISOString(),
+    finalizadoEm: null,
+  }
+
+  jobsDisparo.set(id, job)
+  executarJobDisparo(job, destinatarios, authorization)
+  setTimeout(() => jobsDisparo.delete(id), TEMPO_RETENCAO_JOB_MS).unref?.()
+
+  return job
+}
+
+async function executarJobDisparo(job, destinatarios, authorization) {
+  job.status = 'enviando'
+
+  try {
+    const client = getWhatsAppClient()
+
+    for (const d of destinatarios) {
+      job.atualNome = d.nome_cliente || null
+      const tel = normalizarTelefoneBR(d.telefone)
+
+      if (!tel) {
+        job.erros.push({ nome: d.nome_cliente, motivo: 'Telefone inválido' })
+        continue
+      }
+
+      const mensagem =
+        `Olá, ${d.nome_cliente}! Passando para lembrar do seu agendamento ` +
+        `de ${d.servico} no dia ${formatarData(d.data)} às ${formatarHora(d.hora_inicio)}.`
+
+      try {
+        await client.sendMessage(`${tel}@c.us`, mensagem)
+        job.enviados++
+
+        fetch(`http://localhost:5000/disparos/registrar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', authorization },
+          body: JSON.stringify({
+            agendamento_id: d.agendamento_id,
+            user_id: d.user_id,
+            telefone: tel,
+            status: 'enviado',
+          }),
+        }).catch(() => {})
+
+        await sleep(500)
+      } catch (err) {
+        job.erros.push({ nome: d.nome_cliente, motivo: err.message })
+      }
+    }
+
+    job.status = 'concluido'
+  } catch (err) {
+    job.status = 'erro'
+    job.erros.push({ nome: 'Disparo', motivo: err.message })
+  } finally {
+    job.atualNome = null
+    job.finalizadoEm = new Date().toISOString()
+  }
+}
+
+function serializarJob(job) {
+  return {
+    id: job.id,
+    status: job.status,
+    total: job.total,
+    enviados: job.enviados,
+    erros: job.erros,
+    atual: job.enviados + job.erros.length,
+    atualNome: job.atualNome,
+    concluido: ['concluido', 'erro'].includes(job.status),
+  }
 }
 
 // GET /disparos/preview?data=2026-04-27
@@ -123,6 +208,12 @@ router.post('/desconectar', auth.validarToken, auth.somenteGerente, async (req, 
   }
 })
 
+router.get('/jobs/:id', auth.validarToken, auth.somenteGerente, (req, res) => {
+  const job = jobsDisparo.get(req.params.id)
+  if (!job) return res.status(404).json({ error: 'Disparo não encontrado ou expirado.' })
+  res.json(serializarJob(job))
+})
+
 router.post('/executar', auth.validarToken, auth.somenteGerente, async (req, res) => {
   const { destinatarios } = req.body
   if (!Array.isArray(destinatarios) || !destinatarios.length) {
@@ -137,45 +228,8 @@ router.post('/executar', auth.validarToken, auth.somenteGerente, async (req, res
     })
   }
 
-  const client = getWhatsAppClient()
-  const erros = []
-  let enviados = 0
-
-  for (const d of destinatarios) {
-    const tel = normalizarTelefoneBR(d.telefone)
-
-    if (!tel) {
-      erros.push({ nome: d.nome_cliente, motivo: 'Telefone inválido' })
-      continue
-    }
-
-    const mensagem =
-      `Olá, ${d.nome_cliente}! Passando para lembrar do seu agendamento ` +
-      `de ${d.servico} no dia ${formatarData(d.data)} às ${formatarHora(d.hora_inicio)}.`
-
-    try {
-      await client.sendMessage(`${tel}@c.us`, mensagem)
-      enviados++
-
-      // registra o envio (sem bloquear se falhar)
-      fetch(`http://localhost:5000/disparos/registrar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', authorization: req.headers.authorization },
-        body: JSON.stringify({
-          agendamento_id: d.agendamento_id,
-          user_id: d.user_id,
-          telefone: tel,
-          status: 'enviado',
-        }),
-      }).catch(() => {})
-
-      await sleep(1500) // evita bloqueio por spam
-    } catch (err) {
-      erros.push({ nome: d.nome_cliente, motivo: err.message })
-    }
-  }
-
-  res.json({ enviados, erros })
+  const job = criarJob(destinatarios, req.headers.authorization)
+  res.status(202).json(serializarJob(job))
 })
 
 // POST /disparos/registrar (mantido para compatibilidade)
