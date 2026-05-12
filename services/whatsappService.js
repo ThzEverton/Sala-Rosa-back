@@ -4,8 +4,8 @@ import QRCode from "qrcode";
 
 const { Client, LocalAuth } = pkg;
 
-const WHATSAPP_ENABLED = process.env.WHATSAPP_ENABLED === "true";
-const CHROMIUM_PATH = process.env.PUPPETEER_EXECUTABLE_PATH || "/snap/bin/chromium";
+const WHATSAPP_ENABLED = true;
+const CHROMIUM_PATH = "/snap/bin/chromium";
 
 let estado = WHATSAPP_ENABLED ? "aguardando" : "desativado"; // desativado | aguardando | qr_pendente | pronto | desconectado | erro
 let qrImagemBase64 = null;
