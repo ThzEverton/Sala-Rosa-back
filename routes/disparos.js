@@ -6,6 +6,9 @@ import { getWhatsAppClient, getStatus, iniciarWhatsApp, pararWhatsApp } from '..
 const router = express.Router()
 const auth = new AuthMiddleware()
 const banco = new Database()
+const LIMITE_ENVIOS_PARALELOS = 3
+const TIMEOUT_VALIDACAO_MS = 10000
+const TIMEOUT_ENVIO_MS = 20000
 
 function normalizarTelefoneBR(tel) {
   if (!tel) return null
@@ -29,6 +32,58 @@ function formatarHora(timeStr) {
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
+}
+
+async function comTimeout(promise, ms, mensagem) {
+  let timer = null
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(mensagem)), ms)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+function montarMensagem(d) {
+  return (
+    `Olá, ${d.nome_cliente}! Passando para lembrar do seu agendamento ` +
+    `de ${d.servico} no dia ${formatarData(d.data)} às ${formatarHora(d.hora_inicio)}.`
+  )
+}
+
+async function enviarLembrete(client, d) {
+  const tel = normalizarTelefoneBR(d.telefone)
+
+  if (!tel) {
+    return { ok: false, nome: d.nome_cliente, motivo: 'Telefone inválido' }
+  }
+
+  const numero = await comTimeout(
+    client.getNumberId(tel),
+    TIMEOUT_VALIDACAO_MS,
+    'Tempo esgotado ao validar telefone'
+  )
+
+  if (!numero?._serialized) {
+    return { ok: false, nome: d.nome_cliente, motivo: 'Telefone não encontrado no WhatsApp' }
+  }
+
+  await comTimeout(
+    client.sendMessage(numero._serialized, montarMensagem(d)),
+    TIMEOUT_ENVIO_MS,
+    'Tempo esgotado ao enviar mensagem'
+  )
+
+  return {
+    ok: true,
+    agendamento_id: d.agendamento_id,
+    user_id: d.user_id,
+    telefone: tel,
+  }
 }
 
 // GET /disparos/preview?data=2026-04-27
@@ -141,37 +196,35 @@ router.post('/executar', auth.validarToken, auth.somenteGerente, async (req, res
   const erros = []
   let enviados = 0
 
-  for (const d of destinatarios) {
-    const tel = normalizarTelefoneBR(d.telefone)
+  for (let i = 0; i < destinatarios.length; i += LIMITE_ENVIOS_PARALELOS) {
+    const lote = destinatarios.slice(i, i + LIMITE_ENVIOS_PARALELOS)
+    const resultados = await Promise.all(
+      lote.map(async (d) => {
+        try {
+          return await enviarLembrete(client, d)
+        } catch (err) {
+          return { ok: false, nome: d.nome_cliente, motivo: err.message }
+        }
+      })
+    )
 
-    if (!tel) {
-      erros.push({ nome: d.nome_cliente, motivo: 'Telefone inválido' })
-      continue
+    for (const resultado of resultados) {
+      if (!resultado.ok) {
+        erros.push({ nome: resultado.nome, motivo: resultado.motivo })
+        continue
+      }
+
+      enviados++
+      console.log('Disparo registrado:', {
+        agendamento_id: resultado.agendamento_id,
+        user_id: resultado.user_id,
+        telefone: resultado.telefone,
+        status: 'enviado',
+      })
     }
 
-    const mensagem =
-      `Olá, ${d.nome_cliente}! Passando para lembrar do seu agendamento ` +
-      `de ${d.servico} no dia ${formatarData(d.data)} às ${formatarHora(d.hora_inicio)}.`
-
-    try {
-      await client.sendMessage(`${tel}@c.us`, mensagem)
-      enviados++
-
-      // registra o envio (sem bloquear se falhar)
-      fetch(`http://localhost:5000/disparos/registrar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', authorization: req.headers.authorization },
-        body: JSON.stringify({
-          agendamento_id: d.agendamento_id,
-          user_id: d.user_id,
-          telefone: tel,
-          status: 'enviado',
-        }),
-      }).catch(() => {})
-
-      await sleep(1500) // evita bloqueio por spam
-    } catch (err) {
-      erros.push({ nome: d.nome_cliente, motivo: err.message })
+    if (i + LIMITE_ENVIOS_PARALELOS < destinatarios.length) {
+      await sleep(500)
     }
   }
 
