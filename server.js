@@ -36,10 +36,9 @@ app.use(cors({
 
 app.use(express.json());
 app.use(cookieParser());
-
 // Swagger
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
 // Rotas
 app.use("/autenticacao", authRoutes);

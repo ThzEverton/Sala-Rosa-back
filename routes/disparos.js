@@ -12,15 +12,24 @@ const TEMPO_RETENCAO_JOB_MS = 60 * 60 * 1000
 function normalizarTelefoneBR(tel) {
   if (!tel) return null
   const digits = String(tel).replace(/\D/g, '')
-  if (digits.startsWith('55') && digits.length >= 12) return digits
+  if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) return digits
   if (digits.length === 10 || digits.length === 11) return `55${digits}`
   return null
 }
 
-function formatarData(dateStr) {
-  if (!dateStr) return ''
-  const parte = String(dateStr).split('T')[0]
+function formatarData(data) {
+  if (!data) return ''
+
+  if (data instanceof Date && !Number.isNaN(data.getTime())) {
+    const d = String(data.getUTCDate()).padStart(2, '0')
+    const m = String(data.getUTCMonth() + 1).padStart(2, '0')
+    const y = data.getUTCFullYear()
+    return `${d}/${m}/${y}`
+  }
+
+  const parte = String(data).split('T')[0]
   const [y, m, d] = parte.split('-')
+  if (!y || !m || !d) return String(data)
   return `${d}/${m}/${y}`
 }
 
@@ -33,7 +42,16 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-function criarJob(destinatarios, authorization) {
+function registrarDisparoEnviado(d, telefone) {
+  console.log('Disparo registrado:', {
+    agendamento_id: d.agendamento_id,
+    user_id: d.user_id,
+    telefone,
+    status: 'enviado',
+  })
+}
+
+function criarJob(destinatarios) {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
   const job = {
     id,
@@ -47,13 +65,13 @@ function criarJob(destinatarios, authorization) {
   }
 
   jobsDisparo.set(id, job)
-  executarJobDisparo(job, destinatarios, authorization)
+  executarJobDisparo(job, destinatarios)
   setTimeout(() => jobsDisparo.delete(id), TEMPO_RETENCAO_JOB_MS).unref?.()
 
   return job
 }
 
-async function executarJobDisparo(job, destinatarios, authorization) {
+async function executarJobDisparo(job, destinatarios) {
   job.status = 'enviando'
 
   try {
@@ -75,17 +93,7 @@ async function executarJobDisparo(job, destinatarios, authorization) {
       try {
         await client.sendMessage(`${tel}@c.us`, mensagem)
         job.enviados++
-
-        fetch(`http://localhost:5000/disparos/registrar`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', authorization },
-          body: JSON.stringify({
-            agendamento_id: d.agendamento_id,
-            user_id: d.user_id,
-            telefone: tel,
-            status: 'enviado',
-          }),
-        }).catch(() => {})
+        registrarDisparoEnviado(d, tel)
 
         await sleep(500)
       } catch (err) {
@@ -228,7 +236,7 @@ router.post('/executar', auth.validarToken, auth.somenteGerente, async (req, res
     })
   }
 
-  const job = criarJob(destinatarios, req.headers.authorization)
+  const job = criarJob(destinatarios)
   res.status(202).json(serializarJob(job))
 })
 
