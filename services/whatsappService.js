@@ -1,45 +1,158 @@
-import pkg from 'whatsapp-web.js'
-const { Client, LocalAuth } = pkg
-import QRCode from 'qrcode'
+import "dotenv/config";
+import pkg from "whatsapp-web.js";
+import QRCode from "qrcode";
 
-let estado = 'aguardando' // 'aguardando' | 'qr_pendente' | 'pronto' | 'erro'
-let qrImagemBase64 = null  // imagem PNG em base64 para o frontend
+const { Client, LocalAuth } = pkg;
 
+const WHATSAPP_ENABLED = process.env.WHATSAPP_ENABLED === "true";
+const CHROMIUM_PATH = process.env.PUPPETEER_EXECUTABLE_PATH || "/snap/bin/chromium";
 
- const client = new Client({
-  authStrategy: new LocalAuth({ dataPath: '.wwebjs_auth' }),
-  puppeteer: {
-  executablePath: '/snap/bin/chromium',
-  args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  headless: true,
-},
-})
+let estado = "desativado"; // desativado | aguardando | qr_pendente | pronto | erro
+let qrImagemBase64 = null;
+let client = null;
+let inicializando = false;
+let reconexaoAutomatica = false;
+let timerReconexao = null;
 
-client.on('qr', async (qr) => {
-  estado = 'qr_pendente'
-  // Gera a imagem do QR em base64
-  qrImagemBase64 = await QRCode.toDataURL(qr)
-  console.log('⚠️  QR Code gerado — escaneie pela interface ou pelo terminal.')
-})
+function limparTimerReconexao() {
+  if (timerReconexao) {
+    clearTimeout(timerReconexao);
+    timerReconexao = null;
+  }
+}
 
-client.on('ready', () => {
-  estado = 'pronto'
-  qrImagemBase64 = null
-  console.log('✅ WhatsApp conectado!')
-})
+function criarClient() {
+  const novoClient = new Client({
+    authStrategy: new LocalAuth({ dataPath: ".wwebjs_auth" }),
+    puppeteer: {
+      executablePath: CHROMIUM_PATH,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      headless: true,
+    },
+  });
 
-client.on('auth_failure', () => {
-  estado = 'erro'
-  qrImagemBase64 = null
-})
+  novoClient.on("qr", async (qr) => {
+    estado = "qr_pendente";
+    qrImagemBase64 = await QRCode.toDataURL(qr);
+    console.log("[WhatsApp] QR Code gerado. Escaneie no painel.");
+  });
 
-client.on('disconnected', () => {
-  estado = 'aguardando'
-  qrImagemBase64 = null
-  client.initialize()
-})
+  novoClient.on("ready", () => {
+    estado = "pronto";
+    qrImagemBase64 = null;
+    inicializando = false;
+    limparTimerReconexao();
+    console.log("[WhatsApp] Cliente pronto!");
+  });
 
-client.initialize()
+  novoClient.on("auth_failure", (msg) => {
+    estado = "erro";
+    qrImagemBase64 = null;
+    inicializando = false;
+    console.error("[WhatsApp] Falha na autenticacao:", msg);
+  });
 
-export function getWhatsAppClient() { return client }
-export function getStatus() { return { estado, qr: qrImagemBase64 } }
+  novoClient.on("disconnected", (reason) => {
+    qrImagemBase64 = null;
+    inicializando = false;
+    client = null;
+    console.warn("[WhatsApp] Desconectado:", reason);
+
+    if (!reconexaoAutomatica || !WHATSAPP_ENABLED) {
+      estado = "desativado";
+      limparTimerReconexao();
+      return;
+    }
+
+    estado = "aguardando";
+    limparTimerReconexao();
+    timerReconexao = setTimeout(() => {
+      iniciarWhatsApp().catch((err) => {
+        estado = "erro";
+        console.error("[WhatsApp] Erro ao reconectar:", err);
+      });
+    }, 10000);
+  });
+
+  return novoClient;
+}
+
+export async function iniciarWhatsApp() {
+  if (!WHATSAPP_ENABLED) {
+    estado = "desativado";
+    qrImagemBase64 = null;
+    return false;
+  }
+
+  reconexaoAutomatica = true;
+
+  if (client && ["aguardando", "qr_pendente", "pronto"].includes(estado)) {
+    return true;
+  }
+
+  if (inicializando) return true;
+
+  limparTimerReconexao();
+  inicializando = true;
+  estado = "aguardando";
+  qrImagemBase64 = null;
+
+  try {
+    client = criarClient();
+    await client.initialize();
+    return true;
+  } catch (err) {
+    client = null;
+    inicializando = false;
+    estado = "erro";
+    qrImagemBase64 = null;
+    throw err;
+  }
+}
+
+export async function pararWhatsApp() {
+  reconexaoAutomatica = false;
+  limparTimerReconexao();
+  qrImagemBase64 = null;
+
+  const atual = client;
+  client = null;
+  inicializando = false;
+  estado = "desativado";
+
+  if (!atual) return true;
+
+  try {
+    await atual.logout();
+  } catch {
+    // Sessao sem login ativo ou ja encerrada.
+  }
+
+  try {
+    await atual.destroy();
+  } catch {
+    // O Chromium pode ja ter sido finalizado.
+  }
+
+  return true;
+}
+
+export function getWhatsAppClient() {
+  if (!client || estado !== "pronto") {
+    throw new Error("WhatsApp nao conectado.");
+  }
+  return client;
+}
+
+export function getStatus() {
+  return { estado, qr: qrImagemBase64 };
+}
+
+if (WHATSAPP_ENABLED) {
+  iniciarWhatsApp().catch((err) => {
+    estado = "erro";
+    console.error("[WhatsApp] Erro ao iniciar:", err);
+  });
+} else {
+  console.log("[WhatsApp] Desativado. Defina WHATSAPP_ENABLED=true para usar.");
+}

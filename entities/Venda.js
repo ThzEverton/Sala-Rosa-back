@@ -8,6 +8,7 @@ export default class Venda extends Base {
   #atendimento;
   #data;
   #clienteId;
+  #cliente;
   #valorTotal;
   #total;        // alias usado pelo front (v?.total)
   #formaPagto;
@@ -19,7 +20,10 @@ export default class Venda extends Base {
   get id() { return this.#id; }
   set id(v) { this.#id = v; }
   get clienteId() { return this.#clienteId; }
-set clienteId(v) { this.#clienteId = v; }
+  set clienteId(v) { this.#clienteId = v; }
+
+  get cliente() { return this.#cliente; }
+  set cliente(v) { this.#cliente = v; }
   get usuarioResponsavel() { return this.#usuarioResponsavel; }
   set usuarioResponsavel(v) { this.#usuarioResponsavel = v; }
 
@@ -54,7 +58,8 @@ set clienteId(v) { this.#clienteId = v; }
     super();
     this.#id = null;
     this.#usuarioResponsavel = new Usuario();
-    this.clienteId = new Usuario();
+    this.#clienteId = null;
+    this.#cliente = null;
     this.#atendimento = new Agendamento();
     this.#data = null;
     this.#valorTotal = 0;

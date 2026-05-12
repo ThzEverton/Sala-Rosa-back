@@ -1,13 +1,16 @@
 import TurmasRepository from "../repositories/turmasRepository.js";
+import UsersRepository from "../repositories/usersRepository.js";
 import Agendamento from "../entities/Agendamento.js";
 import Servico from "../entities/Servico.js";
 import Usuario from "../entities/User.js";
 
 export default class TurmasController {
   #repo;
+  #usersRepo;
 
   constructor() {
     this.#repo = new TurmasRepository();
+    this.#usersRepo = new UsersRepository();
   }
 
   #isGerente(req) {
@@ -303,8 +306,10 @@ export default class TurmasController {
       }
 
       const turmaId = Number(req.params.id);
-      const usuarioId = Number(req.usuarioLogado.id);
-      const nomeUsuario = req.usuarioLogado.nome;
+      const isGerente = this.#isGerente(req);
+      const usuarioId = isGerente && req.body?.userId
+        ? Number(req.body.userId)
+        : Number(req.usuarioLogado.id);
 
       if (!Number.isInteger(turmaId) || turmaId <= 0) {
         return res.status(400).json({ msg: "ID da turma inválido" });
@@ -314,7 +319,26 @@ export default class TurmasController {
         return res.status(400).json({ msg: "Usuário inválido" });
       }
 
-      await this.#repo.entrarNaTurma(turmaId, usuarioId, nomeUsuario);
+      const usuarioParticipante = isGerente && req.body?.userId
+        ? await this.#usersRepo.obterPorId(usuarioId)
+        : req.usuarioLogado;
+
+      if (!usuarioParticipante) {
+        return res.status(404).json({ msg: "UsuÃ¡rio participante nÃ£o encontrado" });
+      }
+
+      if (
+        isGerente &&
+        req.body?.userId &&
+        usuarioParticipante.perfil &&
+        usuarioParticipante.perfil !== "cliente"
+      ) {
+        return res.status(400).json({ msg: "Apenas clientes podem ser adicionados como participantes" });
+      }
+
+      await this.#repo.entrarNaTurma(turmaId, usuarioId, usuarioParticipante.nome, {
+        permitirPendente: isGerente && Boolean(req.body?.userId),
+      });
       return res.status(200).json({ msg: "Entrada na turma realizada com sucesso" });
     } catch (error) {
       console.error("Erro em entrar:", error);
@@ -401,7 +425,12 @@ export default class TurmasController {
 
       await this.#repo.removerParticipante(
         Number(req.params.id),
-        Number(req.params.userId)
+        Number(req.params.userId),
+        {
+          converterParaIndividual:
+            req.query?.converterParaIndividual === "1" ||
+            req.query?.converterParaIndividual === "true",
+        }
       );
 
       return res.status(200).json({ msg: "Participante removido com sucesso" });

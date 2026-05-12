@@ -35,6 +35,35 @@ export default class TurmasRepository {
     return slots;
   }
 
+  async #converterTurmaParaIndividualSeUmParticipante(tx, agendamentoId) {
+    const resultCount = await tx.query(
+      `select count(*) as qtd
+       from agendamento_participantes
+       where agendamento_id = ?`,
+      [agendamentoId]
+    );
+    const countRows = this.#normalizeRows(resultCount);
+    const qtd = Number(countRows[0]?.qtd ?? 0);
+
+    if (qtd !== 1) return false;
+
+    await tx.query(
+      `update agendamentos
+       set
+         tipo = 'individual',
+         capacidade_maxima = 1,
+         codigo_convite = null,
+         status = case
+           when status in ('aprovado', 'pendente_aprovacao') then 'confirmado'
+           else status
+         end
+       where id = ? and tipo = 'turma'`,
+      [agendamentoId]
+    );
+
+    return true;
+  }
+
   // ── Listagens ────────────────────────────────────────────────────────────────
 
   
@@ -242,9 +271,9 @@ async listarTurmasDoUsuario(userId) {
         let aplicaNoDia = false;
 
         if (Number(exc.recorrente) === 1) {
-          const diasSemana = exc.dias_semana
-            ? String(exc.dias_semana).split(",").map(Number)
-            : [];
+          const diasSemanaRaw = exc.dias_semana ? String(exc.dias_semana) : "";
+          if (diasSemanaRaw.startsWith("INATIVO|")) continue;
+          const diasSemana = diasSemanaRaw ? diasSemanaRaw.split(",").map(Number) : [];
           aplicaNoDia = diasSemana.includes(dow);
         } else {
           aplicaNoDia = String(exc.data).slice(0, 10) === data;
@@ -503,7 +532,7 @@ async listarTurmasDoUsuario(userId) {
 
   // ── Participantes ────────────────────────────────────────────────────────────
 
-  async entrarNaTurma(agendamentoId, userId, nomeUser) {
+  async entrarNaTurma(agendamentoId, userId, nomeUser, opcoes = {}) {
     const tx = await this.#banco.getConnectionTx();
 
     try {
@@ -519,7 +548,11 @@ async listarTurmasDoUsuario(userId) {
 
       if (ag.tipo !== "turma") throw new Error("Este agendamento não é uma turma");
 
-      if (ag.status !== "aprovado") {
+      const statusPermitidos = opcoes.permitirPendente
+        ? ["aprovado", "pendente_aprovacao"]
+        : ["aprovado"];
+
+      if (!statusPermitidos.includes(ag.status)) {
         throw new Error("Esta turma ainda não está disponível para inscrições");
       }
 
@@ -646,7 +679,7 @@ async listarTurmasDoUsuario(userId) {
     }
   }
 
-  async sairDaTurma(agendamentoId, userId) {
+  async sairDaTurma(agendamentoId, userId, opcoes = {}) {
     const tx = await this.#banco.getConnectionTx();
 
     try {
@@ -671,6 +704,10 @@ async listarTurmasDoUsuario(userId) {
         [agendamentoId, userId]
       );
 
+      if (opcoes.converterParaIndividual) {
+        await this.#converterTurmaParaIndividualSeUmParticipante(tx, agendamentoId);
+      }
+
       await tx.commit();
       return true;
     } catch (e) {
@@ -681,7 +718,7 @@ async listarTurmasDoUsuario(userId) {
     }
   }
 
-  async removerParticipante(turmaId, userId) {
+  async removerParticipante(turmaId, userId, opcoes = {}) {
     const tx = await this.#banco.getConnectionTx();
 
     try {
@@ -705,6 +742,10 @@ async listarTurmasDoUsuario(userId) {
          where agendamento_id = ? and user_id = ?`,
         [turmaId, userId]
       );
+
+      if (opcoes.converterParaIndividual) {
+        await this.#converterTurmaParaIndividualSeUmParticipante(tx, turmaId);
+      }
 
       await tx.commit();
       return true;

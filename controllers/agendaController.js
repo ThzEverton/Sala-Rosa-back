@@ -259,6 +259,14 @@ export default class AgendaController {
           return match;
         });
 
+        const slotOcupado = slotsOcupados.find((s) => {
+          return (
+            normalizarData(s.data) === dataFormatada &&
+            normalizarHora(s.slot) === hora &&
+            String(s.status).trim().toLowerCase() === "ativo"
+          );
+        });
+
         let status = "disponivel";
         if (bloqueado) {
           status = "bloqueado";
@@ -273,6 +281,16 @@ export default class AgendaController {
           bloqueado,
           ocupado,
           status,
+          clienteId: slotOcupado?.cliente_id || null,
+          clienteNome: slotOcupado?.cliente_nome || null,
+          cliente: slotOcupado?.cliente_id
+            ? {
+                id: slotOcupado.cliente_id,
+                nome: slotOcupado.cliente_nome,
+                email: slotOcupado.cliente_email,
+                telefone: slotOcupado.cliente_telefone,
+              }
+            : null,
         });
       }
 

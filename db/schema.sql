@@ -188,6 +188,7 @@ CREATE TABLE vendas (
   id INT NOT NULL AUTO_INCREMENT,
   usuario_responsavel_id INT NOT NULL,
   atendimento_id INT NULL,
+  cliente_id INT NULL,
   data DATE NOT NULL,
   valor_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   forma_pagto ENUM('dinheiro', 'cartao', 'pix') NULL,
@@ -199,12 +200,17 @@ CREATE TABLE vendas (
   KEY idx_v_data (data),
   KEY idx_v_user (usuario_responsavel_id),
   KEY idx_v_ag (atendimento_id),
+  KEY idx_v_cliente (cliente_id),
   CONSTRAINT fk_v_user
     FOREIGN KEY (usuario_responsavel_id) REFERENCES users(id)
     ON DELETE RESTRICT
     ON UPDATE CASCADE,
   CONSTRAINT fk_v_ag
     FOREIGN KEY (atendimento_id) REFERENCES agendamentos(id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_v_cliente
+    FOREIGN KEY (cliente_id) REFERENCES users(id)
     ON DELETE SET NULL
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
