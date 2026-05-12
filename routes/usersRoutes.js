@@ -37,7 +37,7 @@ router.post("/", (req, res) => {
 });
 
 // GET /users
-router.get("/", auth.validarToken, (req, res) => {
+router.get("/", auth.validarToken, auth.somenteGerente, (req, res) => {
   // #swagger.tags = ['Usuário']
   // #swagger.summary = 'Listar todos os usuários'
   /* #swagger.security = [{
@@ -53,7 +53,7 @@ router.get("/", auth.validarToken, (req, res) => {
 });
 
 // GET /users/:id
-router.get("/:id", auth.validarToken, (req, res) => {
+router.get("/:id", auth.validarToken, auth.somenteGerente, (req, res) => {
   // #swagger.tags = ['Usuário']
   // #swagger.summary = 'Obtém um usuário pelo id'
   /* #swagger.security = [{
@@ -71,7 +71,7 @@ router.get("/:id", auth.validarToken, (req, res) => {
 });
 
 // PUT /users/:id
-router.put("/:id", auth.validarToken, (req, res) => {
+router.put("/:id", auth.validarToken, auth.somenteGerente, (req, res) => {
   // #swagger.tags = ['Usuário']
   // #swagger.summary = 'Atualiza um usuário'
   /* #swagger.security = [{
@@ -99,7 +99,7 @@ router.put("/:id", auth.validarToken, (req, res) => {
 });
 
 // PATCH /users/:id/toggle-ativo
-router.patch("/:id/toggle-ativo", auth.validarToken, (req, res) => {
+router.patch("/:id/toggle-ativo", auth.validarToken, auth.somenteGerente, (req, res) => {
   // #swagger.tags = ['Usuário']
   // #swagger.summary = 'Ativa/Inativa usuário'
   /* #swagger.security = [{

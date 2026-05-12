@@ -84,13 +84,27 @@ export default class UsersRepository {
     return await this.#banco.ExecutaComandoNonQuery(sql, [id]);
   }
 
+  #formatarDataISO(valor) {
+    if (!valor) return null;
+    if (typeof valor === "string") return valor.slice(0, 10);
+
+    if (valor instanceof Date && !Number.isNaN(valor.getTime())) {
+      const ano = valor.getFullYear();
+      const mes = String(valor.getMonth() + 1).padStart(2, "0");
+      const dia = String(valor.getDate()).padStart(2, "0");
+      return `${ano}-${mes}-${dia}`;
+    }
+
+    return String(valor).slice(0, 10);
+  }
+
   toMap(row) {
     let u = new Usuario();
     u.id = row["id"];
     u.nome = row["nome"];
     u.email = row["email"];
     u.telefone = row["telefone"];
-    u.dataNascimento = row["data_nascimento"];
+    u.dataNascimento = this.#formatarDataISO(row["data_nascimento"]);
     u.perfil = row["perfil"];
     u.isConsultora = row["is_consultora"] == 1;
     u.ativo = row["ativo"] == 1;

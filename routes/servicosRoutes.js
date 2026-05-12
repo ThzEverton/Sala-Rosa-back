@@ -28,7 +28,7 @@ router.get("/visiveis", auth.validarToken, (req, res) => {
 });
 
 // POST /servicos
-router.post("/", auth.validarToken, (req, res) => {
+router.post("/", auth.validarToken, auth.somenteGerente, (req, res) => {
   // #swagger.tags = ['Serviços']
   // #swagger.summary = 'Cadastra um serviço'
   /* #swagger.security = [{
@@ -38,7 +38,7 @@ router.post("/", auth.validarToken, (req, res) => {
 });
 
 // PUT /servicos/:id
-router.put("/:id", auth.validarToken, (req, res) => {
+router.put("/:id", auth.validarToken, auth.somenteGerente, (req, res) => {
   // #swagger.tags = ['Serviços']
   // #swagger.summary = 'Atualiza um serviço'
   /* #swagger.security = [{
@@ -48,7 +48,7 @@ router.put("/:id", auth.validarToken, (req, res) => {
 });
 
 // DELETE /servicos/:id
-router.delete("/:id", auth.validarToken, (req, res) => {
+router.delete("/:id", auth.validarToken, auth.somenteGerente, (req, res) => {
   // #swagger.tags = ['Serviços']
   // #swagger.summary = 'Remove um serviço'
   /* #swagger.security = [{
@@ -56,7 +56,7 @@ router.delete("/:id", auth.validarToken, (req, res) => {
   }] */
   ctrl.remover(req, res);
 });
-router.patch("/:id/toggle-ativo", auth.validarToken, (req, res) => {
+router.patch("/:id/toggle-ativo", auth.validarToken, auth.somenteGerente, (req, res) => {
   // #swagger.tags = ['Serviços']
   // #swagger.summary = 'Ativa ou desativa um serviço'
   ctrl.toggleAtivo(req, res);
