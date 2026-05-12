@@ -4,6 +4,7 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
+    "prestart": "node scripts/cleanupWhatsAppSession.js",
     "start": "node swagger.js"
   },
   "dependencies": {

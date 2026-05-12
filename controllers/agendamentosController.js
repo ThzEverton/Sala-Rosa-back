@@ -126,7 +126,10 @@ export default class AgendamentosController {
       horaInicio: String(horaInicio).slice(0, 8),
       observacao: observacao ?? null,
       userId: Number(req.usuarioLogado.id),
-      nomeUser: req.usuarioLogado.nome
+      nomeUser: req.usuarioLogado.nome,
+      userIsConsultora:
+        req.usuarioLogado?.isConsultora === true ||
+        Number(req.usuarioLogado?.isConsultora) === 1
     });
 
     return res.status(201).json({
@@ -153,6 +156,10 @@ export default class AgendamentosController {
       mensagem.includes("Agenda não configurada para este dia")
     ) {
       return res.status(400).json({ msg: mensagem });
+    }
+
+    if (mensagem.includes("exclusivo para consultoras")) {
+      return res.status(403).json({ msg: mensagem });
     }
 
     return res.status(500).json({
@@ -214,6 +221,10 @@ async criarComoGerente(req, res) {
       mensagem.includes('Agenda não configurada para este dia')
     ) {
       return res.status(400).json({ msg: mensagem })
+    }
+
+    if (mensagem.includes('exclusivo para consultoras')) {
+      return res.status(403).json({ msg: mensagem })
     }
 
     return res.status(500).json({ msg: mensagem })

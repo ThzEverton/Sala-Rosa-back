@@ -11,7 +11,12 @@ export default class ServicosController {
   // GET /servicos
   async listar(req, res) {
     try {
-      const lista = await this.#repo.listar();
+      const usuario = req.usuarioLogado;
+      const isGerente = usuario?.perfil === "gerente" || usuario?.role === "gerente";
+      const isConsultora = usuario?.isConsultora === true || Number(usuario?.isConsultora) === 1;
+      const lista = isGerente
+        ? await this.#repo.listar()
+        : await this.#repo.listarVisiveis(isConsultora);
       if (!lista || lista.length === 0) {
         return res.status(404).json({ msg: "Nenhum serviço encontrado." });
       }
@@ -42,10 +47,15 @@ async toggleAtivo(req, res) {
   }
 }
 
-  // GET /servicos/visiveis?isConsultora=0|1
+  // GET /servicos/visiveis
   async listarVisiveis(req, res) {
     try {
-      const isConsultora = req.query.isConsultora == "1";
+      const usuario = req.usuarioLogado;
+      const isGerente = usuario?.perfil === "gerente" || usuario?.role === "gerente";
+      const isConsultora =
+        isGerente ||
+        usuario?.isConsultora === true ||
+        Number(usuario?.isConsultora) === 1;
       const lista = await this.#repo.listarVisiveis(isConsultora);
 
       if (!lista || lista.length === 0) {

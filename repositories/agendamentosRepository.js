@@ -102,7 +102,7 @@ export default class AgendamentosRepository {
     return await this.#banco.ExecutaComando(sql, [agendamentoId]);
   }
 
-  async criar({ servicoId, data, horaInicio, observacao, userId, nomeUser }) {
+  async criar({ servicoId, data, horaInicio, observacao, userId, nomeUser, userIsConsultora = false }) {
     const tx = await this.#banco.getConnectionTx();
 
     const toMin = (t) => {
@@ -138,6 +138,9 @@ export default class AgendamentosRepository {
 
       const servico = servRows[0];
       if (Number(servico.ativo) !== 1) throw new Error("Serviço inativo");
+      if (Number(servico.exclusivo_para_consultora) === 1 && !userIsConsultora) {
+        throw new Error("Serviço exclusivo para consultoras");
+      }
 
       const duracaoMin = Number(servico.duracao_min);
       const horaFim = this.#somarMinutos(horaInicio, duracaoMin);
@@ -515,10 +518,14 @@ export default class AgendamentosRepository {
       if (Array.isArray(ocupRows) && ocupRows.length > 0) throw new Error('Já existe agendamento nesse horário')
 
       const destRows = await tx.query(
-        `select nome from users where id = ? limit 1`,
+        `select nome, is_consultora from users where id = ? limit 1`,
         [destinatarioIdNum]
       )
       if (!Array.isArray(destRows) || destRows.length === 0) throw new Error('Usuário destinatário não encontrado')
+
+      if (Number(servico.exclusivo_para_consultora) === 1 && Number(destRows[0].is_consultora) !== 1) {
+        throw new Error('Serviço exclusivo para consultoras')
+      }
 
       const nomeDestinatario = destRows[0].nome
 
