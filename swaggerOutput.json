@@ -54,6 +54,82 @@
         }
       }
     },
+    "/autenticacao/esqueci-senha": {
+      "post": {
+        "tags": [
+          "Autenticação"
+        ],
+        "summary": "Solicita envio de link para redefinição de senha",
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "usuario@email.com"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/autenticacao/redefinir-senha": {
+      "post": {
+        "tags": [
+          "Autenticação"
+        ],
+        "summary": "Redefine a senha usando o token enviado por e-mail",
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "example": "token-recebido-por-email"
+                  },
+                  "senha": {
+                    "type": "string",
+                    "example": "novaSenha123"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/autenticacao/usuario": {
       "get": {
         "tags": [
@@ -3098,6 +3174,31 @@
           },
           "404": {
             "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/teste-email": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "destinatario",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "500": {
+            "description": "Internal Server Error"
           }
         }
       }
