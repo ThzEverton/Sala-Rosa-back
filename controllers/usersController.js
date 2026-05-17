@@ -90,7 +90,7 @@ export default class UsersController {
   async atualizar(req, res) {
     try {
       const { id } = req.params;
-      const { nome, email, telefone, dataNascimento, perfil, isConsultora, ativo } = req.body;
+      const { nome, email, telefone, dataNascimento, perfil, isConsultora, ativo, senha } = req.body;
 
       if (!id) return res.status(400).json({ msg: "Id inválido." });
 
@@ -104,6 +104,7 @@ export default class UsersController {
       if (perfil !== undefined) atual.perfil = perfil;
       if (isConsultora !== undefined) atual.isConsultora = isConsultora ? 1 : 0;
       if (ativo !== undefined) atual.ativo = ativo ? 1 : 0;
+      if (senha !== undefined && String(senha).trim()) atual.senha = String(senha);
 
       const ok = await this.#repo.atualizar(atual);
       if (!ok) return res.status(400).json({ msg: "Não foi possível atualizar usuário." });

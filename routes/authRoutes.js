@@ -28,6 +28,47 @@ router.post("/token", (req, res) => {
     ctrl.token(req, res);
 });
 
+// POST /autenticacao/esqueci-senha
+router.post("/esqueci-senha", (req, res) => {
+    // #swagger.tags = ['Autenticação']
+    // #swagger.summary = 'Solicita envio de link para redefinição de senha'
+    /* #swagger.requestBody = {
+        required: true,
+        content: {
+            "application/json": {
+                schema: {
+                    type: "object",
+                    properties: {
+                        email: { type: "string", example: "usuario@email.com" }
+                    }
+                }
+            }
+        }
+    } */
+    ctrl.esqueciSenha(req, res);
+});
+
+// POST /autenticacao/redefinir-senha
+router.post("/redefinir-senha", (req, res) => {
+    // #swagger.tags = ['Autenticação']
+    // #swagger.summary = 'Redefine a senha usando o token enviado por e-mail'
+    /* #swagger.requestBody = {
+        required: true,
+        content: {
+            "application/json": {
+                schema: {
+                    type: "object",
+                    properties: {
+                        token: { type: "string", example: "token-recebido-por-email" },
+                        senha: { type: "string", example: "novaSenha123" }
+                    }
+                }
+            }
+        }
+    } */
+    ctrl.redefinirSenha(req, res);
+});
+
 
 // GET /autenticacao/usuario
 router.get("/usuario",
