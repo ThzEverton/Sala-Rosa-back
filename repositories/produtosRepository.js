@@ -35,7 +35,8 @@ export default class ProdutosRepository {
       ent.ativo ? 1 : 0
     ];
 
-    return await this.#banco.ExecutaComandoNonQuery(sql, vals);
+    const result = await this.#banco.ExecutaComando(sql, vals);
+    return { insertId: result.insertId };
   }
 
   async atualizar(ent) {
@@ -51,6 +52,11 @@ export default class ProdutosRepository {
       ent.id
     ];
     return await this.#banco.ExecutaComandoNonQuery(sql, vals);
+  }
+
+  async excluir(id) {
+    const sql = `delete from produtos where id = ?`;
+    return await this.#banco.ExecutaComandoNonQuery(sql, [id]);
   }
 
   toMap(row) {

@@ -61,7 +61,8 @@ export default class ServicosRepository {
       ent.exclusivoParaConsultora ? 1 : 0
     ];
 
-    return await this.#banco.ExecutaComandoNonQuery(sql, vals);
+    const result = await this.#banco.ExecutaComando(sql, vals);
+    return { insertId: result.insertId };
   }
 
   async atualizar(ent) {
@@ -82,6 +83,11 @@ export default class ServicosRepository {
     ];
 
     return await this.#banco.ExecutaComandoNonQuery(sql, vals);
+  }
+
+  async remover(id) {
+    const sql = `delete from servicos where id = ?`;
+    return await this.#banco.ExecutaComandoNonQuery(sql, [id]);
   }
 
   toMap(row) {

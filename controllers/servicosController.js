@@ -173,4 +173,24 @@ async toggleAtivo(req, res) {
       return res.status(500).json({ msg: "Erro ao atualizar serviço." });
     }
   }
+
+  async remover(req, res) {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        return res.status(400).json({ msg: "Id inválido." });
+      }
+
+      const ok = await this.#repo.remover(id);
+      if (!ok) {
+        return res.status(400).json({ msg: "Não foi possível remover serviço." });
+      }
+
+      return res.status(200).json({ msg: "Serviço removido." });
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ msg: "Erro ao remover serviço." });
+    }
+  }
 }

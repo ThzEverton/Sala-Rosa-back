@@ -49,7 +49,8 @@ export default class UsersRepository {
       await this.#hashSenha(ent.senha)
     ];
 
-    return await this.#banco.ExecutaComandoNonQuery(sql, vals);
+    const result = await this.#banco.ExecutaComando(sql, vals);
+    return { insertId: result.insertId };
   }
 
   async atualizar(ent) {
