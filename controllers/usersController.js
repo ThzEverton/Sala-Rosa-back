@@ -20,20 +20,77 @@ export default class UsersController {
 
   #montarHtmlBoasVindas(usuario) {
     const nome = this.#escaparHtml(usuario.nome);
-    const siteUrl = process.env.FRONTEND_URL || "https://melissamartelli.com.br";
+    const siteUrl = (process.env.FRONTEND_URL || "https://melissamartelli.com.br").replace(/\/$/, "");
 
     return `
-      <div style="font-family: Arial, sans-serif; color: #2b2b2b; line-height: 1.5;">
-        <h2 style="color: #d04482;">Bem-vinda ao Sala Rosa!</h2>
-        <p>Olá, ${nome}.</p>
-        <p>Seu cadastro foi realizado com sucesso. Agora você já pode acessar sua conta pelo link abaixo:</p>
-        <p>
-          <a href="${siteUrl}/login" style="display: inline-block; background: #d04482; color: #ffffff; padding: 10px 16px; border-radius: 8px; text-decoration: none;">
-            Acessar minha conta
-          </a>
-        </p>
-        <p>Se você não realizou esse cadastro, ignore este e-mail.</p>
-        <p style="font-size: 12px; color: #777;">Sala Rosa</p>
+      <div style="margin:0; padding:0; background:#f8f4f6;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8f4f6; padding:18px 8px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:760px; background:#ffffff; border-radius:18px; overflow:hidden; font-family:Arial,Helvetica,sans-serif; color:#2b2b2b; border:1px solid #efd5de;">
+                <tr>
+                  <td align="center" style="background:#bd4668; background:linear-gradient(180deg,#cf5d7c 0%,#b83f62 100%); padding:30px 34px 26px;">
+                    <div style="font-size:26px; line-height:1.2; color:#ffffff; font-weight:700;">Sala Rosa</div>
+                    <div style="margin-top:6px; font-size:11px; line-height:1.4; color:#ffe9ef; font-weight:700; letter-spacing:.7px; text-transform:uppercase;">Espaço de beleza e bem-estar</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:30px 36px 24px; border-bottom:1px solid #f0dbe2;">
+                    <p style="margin:0 0 8px; font-size:12px; color:#8a6473; font-weight:700;">Uma mensagem especial para você</p>
+                    <h1 style="margin:0; font-size:28px; line-height:1.22; color:#171214;">Bem-vinda, ${nome}</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:30px 42px 12px; border-bottom:1px dashed #ead3dc;">
+                    <p style="margin:0 0 14px; font-size:16px; line-height:1.75; color:#2f2a2d;">Estamos muito felizes em ter você conosco. Seu cadastro foi realizado com sucesso e agora você já pode acessar sua conta.</p>
+                    <div style="margin:22px 0 18px; background:#fff1f5; border-left:5px solid #cf4d72; border-radius:12px; padding:18px 20px;">
+                      <p style="margin:0; font-size:15px; line-height:1.65; color:#6f2f47; font-weight:700;">A Sala Rosa prepara cada atendimento com cuidado, carinho e atenção aos detalhes.</p>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:28px 37px 24px; border-bottom:1px dashed #ead3dc;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td width="33.33%" style="padding:0 5px 10px;">
+                          <div style="border:1px solid #eed6df; border-radius:12px; padding:18px 10px; text-align:center;">
+                            <div style="font-size:24px; color:#c64469; line-height:1;">&#10022;</div>
+                            <div style="margin-top:10px; font-size:14px; color:#1f171b; font-weight:700;">Beleza</div>
+                            <div style="font-size:12px; line-height:1.35; color:#806875;">Cuidado especial</div>
+                          </div>
+                        </td>
+                        <td width="33.33%" style="padding:0 5px 10px;">
+                          <div style="border:1px solid #eed6df; border-radius:12px; padding:18px 10px; text-align:center;">
+                            <div style="font-size:24px; color:#c64469; line-height:1;">&#9825;</div>
+                            <div style="margin-top:10px; font-size:14px; color:#1f171b; font-weight:700;">Atendimento</div>
+                            <div style="font-size:12px; line-height:1.35; color:#806875;">Experiência personalizada</div>
+                          </div>
+                        </td>
+                        <td width="33.33%" style="padding:0 5px 10px;">
+                          <div style="border:1px solid #eed6df; border-radius:12px; padding:18px 10px; text-align:center;">
+                            <div style="font-size:24px; color:#c64469; line-height:1;">&#10048;</div>
+                            <div style="margin-top:10px; font-size:14px; color:#1f171b; font-weight:700;">Bem-estar</div>
+                            <div style="font-size:12px; line-height:1.35; color:#806875;">Momento para você</div>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:30px 42px 34px; border-bottom:1px dashed #ead3dc;">
+                    <a href="${siteUrl}/login" style="display:inline-block; background:#bd4668; color:#ffffff; text-decoration:none; border-radius:999px; padding:15px 34px; font-size:15px; line-height:1; font-weight:700;">Acessar minha conta &rarr;</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:22px 42px 26px;">
+                    <p style="margin:0; font-size:12px; line-height:1.6; color:#7b6870;"><strong style="color:#171214;">Sala Rosa</strong><br>Se você não realizou esse cadastro, ignore este e-mail.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
       </div>
     `;
   }

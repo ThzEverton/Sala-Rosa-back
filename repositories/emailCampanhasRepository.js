@@ -15,6 +15,7 @@ export default class EmailCampanhasRepository {
         assunto varchar(180) not null,
         mensagem text not null,
         imagem_url varchar(500) null,
+        incluir_servicos tinyint(1) not null default 0,
         criado_por_user_id int null,
         total_destinatarios int not null default 0,
         total_enviados int not null default 0,
@@ -31,6 +32,21 @@ export default class EmailCampanhasRepository {
           on update cascade
       ) engine=InnoDB
     `);
+
+    const colunas = await this.#banco.ExecutaComando(`
+      select column_name
+      from information_schema.columns
+      where table_schema = database()
+        and table_name = 'email_campanhas'
+        and column_name = 'incluir_servicos'
+    `);
+
+    if (!colunas.length) {
+      await this.#banco.ExecutaComandoNonQuery(`
+        alter table email_campanhas
+        add column incluir_servicos tinyint(1) not null default 0 after imagem_url
+      `);
+    }
 
     await this.#banco.ExecutaComandoNonQuery(`
       create table if not exists email_campanha_envios (
@@ -91,16 +107,16 @@ export default class EmailCampanhasRepository {
     return rows.length ? this.#mapCampanha(rows[0]) : null;
   }
 
-  async criarCampanha({ titulo, assunto, mensagem, imagemUrl, criadoPorUserId }) {
+  async criarCampanha({ titulo, assunto, mensagem, imagemUrl, incluirServicos, criadoPorUserId }) {
     await this.garantirTabelas();
 
     return await this.#banco.ExecutaComandoLastInserted(
       `
       insert into email_campanhas
-        (titulo, assunto, mensagem, imagem_url, criado_por_user_id)
-      values (?, ?, ?, ?, ?)
+        (titulo, assunto, mensagem, imagem_url, incluir_servicos, criado_por_user_id)
+      values (?, ?, ?, ?, ?, ?)
       `,
-      [titulo, assunto, mensagem, imagemUrl || null, criadoPorUserId || null]
+      [titulo, assunto, mensagem, imagemUrl || null, incluirServicos ? 1 : 0, criadoPorUserId || null]
     );
   }
 
@@ -192,6 +208,7 @@ export default class EmailCampanhasRepository {
       assunto: row.assunto,
       mensagem: row.mensagem,
       imagemUrl: row.imagem_url,
+      incluirServicos: Boolean(row.incluir_servicos),
       criadoPorUserId: row.criado_por_user_id,
       criadoPorNome: row.criado_por_nome || null,
       totalDestinatarios: Number(row.total_destinatarios || 0),

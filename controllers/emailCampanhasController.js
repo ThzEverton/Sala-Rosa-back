@@ -38,6 +38,40 @@ export default class EmailCampanhasController {
       .join("");
   }
 
+  #montarBlocoServicos() {
+    return `
+      <tr>
+        <td style="padding:28px 37px 24px; border-bottom:1px dashed #ead3dc;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            <tr>
+              <td width="33.33%" style="padding:0 5px 10px;">
+                <div style="border:1px solid #eed6df; border-radius:12px; padding:18px 10px; text-align:center;">
+                  <div style="font-size:24px; color:#c64469; line-height:1;">&#10022;</div>
+                  <div style="margin-top:10px; font-size:14px; line-height:1.25; color:#1f171b; font-weight:700;">Beleza</div>
+                  <div style="font-size:12px; line-height:1.35; color:#806875;">Cuidado especial</div>
+                </div>
+              </td>
+              <td width="33.33%" style="padding:0 5px 10px;">
+                <div style="border:1px solid #eed6df; border-radius:12px; padding:18px 10px; text-align:center;">
+                  <div style="font-size:24px; color:#c64469; line-height:1;">&#9825;</div>
+                  <div style="margin-top:10px; font-size:14px; line-height:1.25; color:#1f171b; font-weight:700;">Atendimento</div>
+                  <div style="font-size:12px; line-height:1.35; color:#806875;">Experiência personalizada</div>
+                </div>
+              </td>
+              <td width="33.33%" style="padding:0 5px 10px;">
+                <div style="border:1px solid #eed6df; border-radius:12px; padding:18px 10px; text-align:center;">
+                  <div style="font-size:24px; color:#c64469; line-height:1;">&#10048;</div>
+                  <div style="margin-top:10px; font-size:14px; line-height:1.25; color:#1f171b; font-weight:700;">Bem-estar</div>
+                  <div style="font-size:12px; line-height:1.35; color:#806875;">Momento para você</div>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    `;
+  }
+
   #montarHtmlCampanha(campanha, cliente, imagemCid = null) {
     const nome = this.#escaparHtml(cliente?.nome || "cliente");
     const assunto = this.#escaparHtml(campanha.assunto);
@@ -48,6 +82,7 @@ export default class EmailCampanhasController {
     const frontendUrl = this.#escaparHtml(
       (process.env.FRONTEND_URL || process.env.APP_URL || "https://melissamartelli.com.br").replace(/\/$/, "")
     );
+    const servicosHtml = campanha.incluirServicos ? this.#montarBlocoServicos() : "";
     const imagemHtml = imagemUrl
       ? `
         <tr>
@@ -94,35 +129,7 @@ export default class EmailCampanhasController {
                     </div>
                   </td>
                 </tr>
-                <tr>
-                  <td style="padding:28px 37px 24px; border-bottom:1px dashed #ead3dc;">
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                      <tr>
-                        <td width="33.33%" style="padding:0 5px 10px;">
-                          <div style="border:1px solid #eed6df; border-radius:12px; padding:18px 10px; text-align:center;">
-                            <div style="font-size:24px; color:#c64469; line-height:1;">&#10022;</div>
-                            <div style="margin-top:10px; font-size:14px; line-height:1.25; color:#1f171b; font-weight:700;">Beleza</div>
-                            <div style="font-size:12px; line-height:1.35; color:#806875;">Cabelo e cuidado</div>
-                          </div>
-                        </td>
-                        <td width="33.33%" style="padding:0 5px 10px;">
-                          <div style="border:1px solid #eed6df; border-radius:12px; padding:18px 10px; text-align:center;">
-                            <div style="font-size:24px; color:#c64469; line-height:1;">&#9825;</div>
-                            <div style="margin-top:10px; font-size:14px; line-height:1.25; color:#1f171b; font-weight:700;">Estética</div>
-                            <div style="font-size:12px; line-height:1.35; color:#806875;">Tratamentos faciais</div>
-                          </div>
-                        </td>
-                        <td width="33.33%" style="padding:0 5px 10px;">
-                          <div style="border:1px solid #eed6df; border-radius:12px; padding:18px 10px; text-align:center;">
-                            <div style="font-size:24px; color:#c64469; line-height:1;">&#10048;</div>
-                            <div style="margin-top:10px; font-size:14px; line-height:1.25; color:#1f171b; font-weight:700;">Relaxamento</div>
-                            <div style="font-size:12px; line-height:1.35; color:#806875;">Massagem e spa</div>
-                          </div>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
+                ${servicosHtml}
                 <tr>
                   <td align="center" style="padding:30px 42px 34px; border-bottom:1px dashed #ead3dc;">
                     <a href="${frontendUrl}/login" style="display:inline-block; background:#bd4668; color:#ffffff; text-decoration:none; border-radius:999px; padding:15px 34px; font-size:15px; line-height:1; font-weight:700;">Agendar meu horário &rarr;</a>
@@ -166,6 +173,7 @@ export default class EmailCampanhasController {
     const assunto = this.#normalizarTexto(body.assunto);
     const mensagem = this.#normalizarTexto(body.mensagem || body.texto);
     const imagemUrl = this.#normalizarTexto(body.imagemUrl || body.imagem_url) || null;
+    const incluirServicos = Boolean(body.incluirServicos || body.incluir_servicos);
 
     if (!titulo || titulo.length < 2) {
       return { erro: "Título inválido." };
@@ -177,7 +185,7 @@ export default class EmailCampanhasController {
       return { erro: "Mensagem inválida." };
     }
 
-    return { titulo, assunto, mensagem, imagemUrl };
+    return { titulo, assunto, mensagem, imagemUrl, incluirServicos };
   }
 
   async listar(req, res) {
