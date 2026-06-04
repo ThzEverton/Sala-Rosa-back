@@ -20,6 +20,7 @@ import estoqueRoutes from "./routes/estoqueRoutes.js";
 import financeiroRoutes from "./routes/financeiroRoutes.js";
 import disparos from "./routes/disparos.js";
 import emailRoutes from "./routes/emailRoutes.js";
+import emailCampanhasRoutes from "./routes/emailCampanhasRoutes.js";
 
 //import { errorHandler } from "./middlewares/errorHandler.js";
 const app = express();
@@ -35,7 +36,7 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
 // Swagger
 
@@ -53,6 +54,7 @@ app.use("/vendas", vendasRoutes);
 app.use("/estoque", estoqueRoutes);
 app.use("/financeiro", financeiroRoutes);
 app.use("/disparos", disparos);
+app.use("/email-campanhas", emailCampanhasRoutes);
 app.use("/", emailRoutes);
 
 const PORT = process.env.PORT || 5000;

@@ -23,7 +23,7 @@ export default class AuthController {
       let usuario = await this.#usersRepository.validarAcesso(email, senha);
 
       if (!usuario)
-        return res.status(404).json({ msg: "Usuário não encontrado" });
+        return res.status(401).json({ msg: "Email ou senha inválidos" });
 
       let auth = new AuthMiddleware();
       let token = auth.gerarToken(

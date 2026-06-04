@@ -11,33 +11,55 @@ export default class AgendaRepository {
   }
 
   async obterConfig() {
+    await this.garantirConfigPadrao();
+
     const sql = `select * from horario_config where id = 1 limit 1`;
     const rows = await this.#banco.ExecutaComando(sql, []);
     if (rows.length === 0) return null;
     return this.toMapConfig(rows[0]);
   }
 
+  async garantirConfigPadrao() {
+    const sql = `
+      insert into horario_config
+        (id, hora_inicio_padrao, hora_fim_padrao, duracao_slot_minutos, hora_inicio_semana, hora_fim_semana, hora_inicio_fim_semana, hora_fim_fim_semana)
+      values
+        (1, '08:00:00', '18:00:00', 60, '08:00:00', '18:00:00', null, null)
+      on duplicate key update id = id
+    `;
+
+    await this.#banco.ExecutaComando(sql);
+    return true;
+  }
+
   async atualizarConfig(ent) {
     const sql = `
-      update horario_config
-      set
-        hora_inicio_semana = ?,
-        hora_fim_semana = ?,
-        hora_inicio_fim_semana = ?,
-        hora_fim_fim_semana = ?,
-        duracao_slot_minutos = ?
-      where id = 1
+      insert into horario_config
+        (id, hora_inicio_padrao, hora_fim_padrao, duracao_slot_minutos, hora_inicio_semana, hora_fim_semana, hora_inicio_fim_semana, hora_fim_fim_semana)
+      values
+        (1, ?, ?, ?, ?, ?, ?, ?)
+      on duplicate key update
+        hora_inicio_padrao = values(hora_inicio_padrao),
+        hora_fim_padrao = values(hora_fim_padrao),
+        duracao_slot_minutos = values(duracao_slot_minutos),
+        hora_inicio_semana = values(hora_inicio_semana),
+        hora_fim_semana = values(hora_fim_semana),
+        hora_inicio_fim_semana = values(hora_inicio_fim_semana),
+        hora_fim_fim_semana = values(hora_fim_fim_semana)
     `;
 
     const vals = [
       ent.horaInicioSemana,
       ent.horaFimSemana,
+      ent.duracaoSlotMinutos,
+      ent.horaInicioSemana,
+      ent.horaFimSemana,
       ent.horaInicioFimSemana,
       ent.horaFimFimSemana,
-      ent.duracaoSlotMinutos,
     ];
 
-    return await this.#banco.ExecutaComandoNonQuery(sql, vals);
+    await this.#banco.ExecutaComando(sql, vals);
+    return true;
   }
 
   async listarExcecoes() {

@@ -10,6 +10,11 @@ export default class Venda extends Base {
   #clienteId;
   #cliente;
   #valorTotal;
+  #valorPago;
+  #valorRestante;
+  #parcelado;
+  #qtdParcelas;
+  #valorParcela;
   #total;        // alias usado pelo front (v?.total)
   #formaPagto;
   #statusPagto;
@@ -35,6 +40,21 @@ export default class Venda extends Base {
 
   get valorTotal() { return this.#valorTotal; }
   set valorTotal(v) { this.#valorTotal = v; }
+
+  get valorPago() { return this.#valorPago; }
+  set valorPago(v) { this.#valorPago = v; }
+
+  get valorRestante() { return this.#valorRestante; }
+  set valorRestante(v) { this.#valorRestante = v; }
+
+  get parcelado() { return this.#parcelado; }
+  set parcelado(v) { this.#parcelado = v; }
+
+  get qtdParcelas() { return this.#qtdParcelas; }
+  set qtdParcelas(v) { this.#qtdParcelas = v; }
+
+  get valorParcela() { return this.#valorParcela; }
+  set valorParcela(v) { this.#valorParcela = v; }
 
   get total() { return this.#total; }
   set total(v) { this.#total = v; }
@@ -63,6 +83,11 @@ export default class Venda extends Base {
     this.#atendimento = new Agendamento();
     this.#data = null;
     this.#valorTotal = 0;
+    this.#valorPago = 0;
+    this.#valorRestante = 0;
+    this.#parcelado = false;
+    this.#qtdParcelas = 1;
+    this.#valorParcela = 0;
     this.#total = 0;
     this.#formaPagto = null;
     this.#statusPagto = "pendente";

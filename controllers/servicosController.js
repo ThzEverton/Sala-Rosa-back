@@ -17,10 +17,7 @@ export default class ServicosController {
       const lista = isGerente
         ? await this.#repo.listar()
         : await this.#repo.listarVisiveis(isConsultora);
-      if (!lista || lista.length === 0) {
-        return res.status(404).json({ msg: "Nenhum serviço encontrado." });
-      }
-      return res.status(200).json(lista);
+      return res.status(200).json(lista || []);
     } catch (e) {
       console.error(e);
       return res.status(500).json({ msg: "Erro ao listar serviços." });
@@ -58,11 +55,7 @@ async toggleAtivo(req, res) {
         Number(usuario?.isConsultora) === 1;
       const lista = await this.#repo.listarVisiveis(isConsultora);
 
-      if (!lista || lista.length === 0) {
-        return res.status(404).json({ msg: "Nenhum serviço encontrado." });
-      }
-
-      return res.status(200).json(lista);
+      return res.status(200).json(lista || []);
     } catch (e) {
       console.error(e);
       return res.status(500).json({ msg: "Erro ao listar serviços visíveis." });

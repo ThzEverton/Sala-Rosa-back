@@ -40,7 +40,7 @@ function criarTransporter() {
   })
 }
 
-export async function enviarEmail(destinatario, assunto, html) {
+export async function enviarEmail(destinatario, assunto, html, opcoes = {}) {
   if (!destinatario) throw new Error('destinatario é obrigatório')
   if (!assunto) throw new Error('assunto é obrigatório')
   if (!html) throw new Error('html é obrigatório')
@@ -52,6 +52,7 @@ export async function enviarEmail(destinatario, assunto, html) {
     to: destinatario,
     subject: assunto,
     html,
+    attachments: opcoes.attachments || [],
   })
 
   console.log('E-mail enviado com sucesso:', {

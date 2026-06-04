@@ -84,6 +84,11 @@ CREATE TABLE horario_config (
   PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 
+INSERT INTO horario_config
+  (id, hora_inicio_padrao, hora_fim_padrao, duracao_slot_minutos, hora_inicio_semana, hora_fim_semana, hora_inicio_fim_semana, hora_fim_fim_semana)
+VALUES
+  (1, '08:00:00', '18:00:00', 60, '08:00:00', '18:00:00', NULL, NULL);
+
 -- =========================
 -- EXCECOES_DIA 
 -- =========================
@@ -206,8 +211,13 @@ CREATE TABLE vendas (
   cliente_id INT NULL,
   data DATE NOT NULL,
   valor_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  valor_pago DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  valor_restante DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   forma_pagto ENUM('dinheiro', 'cartao', 'pix') NULL,
-  status_pagto ENUM('pendente', 'pago', 'cancelado', 'estornado') NOT NULL DEFAULT 'pendente',
+  status_pagto ENUM('pendente', 'parcial', 'pago', 'cancelado', 'estornado') NOT NULL DEFAULT 'pendente',
+  parcelado TINYINT(1) NOT NULL DEFAULT 0,
+  qtd_parcelas INT NOT NULL DEFAULT 1,
+  valor_parcela DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   observacao VARCHAR(255) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
@@ -226,6 +236,56 @@ CREATE TABLE vendas (
     ON UPDATE CASCADE,
   CONSTRAINT fk_v_cliente
     FOREIGN KEY (cliente_id) REFERENCES users(id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- =========================
+-- EMAIL_CAMPANHAS
+-- =========================
+CREATE TABLE email_campanhas (
+  id INT NOT NULL AUTO_INCREMENT,
+  titulo VARCHAR(160) NOT NULL,
+  assunto VARCHAR(180) NOT NULL,
+  mensagem TEXT NOT NULL,
+  imagem_url VARCHAR(500) NULL,
+  criado_por_user_id INT NULL,
+  total_destinatarios INT NOT NULL DEFAULT 0,
+  total_enviados INT NOT NULL DEFAULT 0,
+  total_erros INT NOT NULL DEFAULT 0,
+  ultimo_envio_em DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_ec_criado_por (criado_por_user_id),
+  KEY idx_ec_ultimo_envio (ultimo_envio_em),
+  CONSTRAINT fk_ec_criado_por
+    FOREIGN KEY (criado_por_user_id) REFERENCES users(id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- =========================
+-- EMAIL_CAMPANHA_ENVIOS
+-- =========================
+CREATE TABLE email_campanha_envios (
+  id INT NOT NULL AUTO_INCREMENT,
+  campanha_id INT NOT NULL,
+  user_id INT NULL,
+  nome VARCHAR(120) NULL,
+  email VARCHAR(160) NOT NULL,
+  status ENUM('enviado', 'erro') NOT NULL,
+  erro VARCHAR(500) NULL,
+  enviado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_ece_campanha (campanha_id),
+  KEY idx_ece_user (user_id),
+  CONSTRAINT fk_ece_campanha
+    FOREIGN KEY (campanha_id) REFERENCES email_campanhas(id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_ece_user
+    FOREIGN KEY (user_id) REFERENCES users(id)
     ON DELETE SET NULL
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
@@ -307,7 +367,7 @@ CREATE TABLE financeiro_lancamentos (
   descricao VARCHAR(200) NOT NULL,
   valor DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   forma_pagto ENUM('dinheiro', 'cartao', 'pix') NULL,
-  status ENUM('pendente', 'pago', 'cancelado', 'estornado') NOT NULL DEFAULT 'pendente',
+  status ENUM('pendente', 'parcial', 'pago', 'cancelado', 'estornado') NOT NULL DEFAULT 'pendente',
   data_ref DATE NOT NULL,
   user_id INT NULL,
   venda_id INT NULL,
@@ -375,3 +435,20 @@ BEGIN
 END$$
 
 DELIMITER ;
+
+-- =========================
+-- USUARIO GERENTE INICIAL
+-- =========================
+INSERT INTO users
+  (nome, email, telefone, data_nascimento, perfil, is_consultora, ativo, senha)
+VALUES
+  (
+    'Gerente Sala Rosa',
+    'gerente@salarosa.com',
+    NULL,
+    NULL,
+    'gerente',
+    0,
+    1,
+    '$2b$10$geai2jvTw8IsFHXma.rOYOT/lt5QCpt/9/uTpKXPRk8JbwBMxSV1O'
+  );

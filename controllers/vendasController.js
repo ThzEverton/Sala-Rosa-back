@@ -36,7 +36,19 @@ export default class VendaController {
 
   async criar(req, res) {
   try {
-    const { agendamentoId, clienteId, itens, total, formaPagto, statusPagto, observacao } = req.body;
+    const {
+      agendamentoId,
+      clienteId,
+      itens,
+      total,
+      formaPagto,
+      statusPagto,
+      observacao,
+      valorPago,
+      parcelado,
+      qtdParcelas,
+      valorParcela,
+    } = req.body;
 
     if (!Array.isArray(itens) || itens.length === 0) {
       return res.status(400).json({ msg: "A venda deve conter pelo menos 1 item" });
@@ -44,6 +56,20 @@ export default class VendaController {
 
     if (!formaPagto || !["dinheiro", "cartao", "pix"].includes(formaPagto)) {
       return res.status(400).json({ msg: "Forma de pagamento inválida. Use: dinheiro, cartao ou pix" });
+    }
+
+    const totalNum = Number(total) || 0;
+    const valorPagoNum = Number(valorPago ?? (statusPagto === "pago" ? totalNum : 0));
+    const qtdParcelasNum = Number(qtdParcelas || 1);
+
+    if (valorPagoNum < 0) {
+      return res.status(400).json({ msg: "Valor pago não pode ser negativo" });
+    }
+    if (valorPagoNum > totalNum) {
+      return res.status(400).json({ msg: "Valor pago não pode ser maior que o total da venda" });
+    }
+    if (parcelado && (!Number.isInteger(qtdParcelasNum) || qtdParcelasNum < 2)) {
+      return res.status(400).json({ msg: "Informe ao menos 2 parcelas para venda parcelada" });
     }
 
     for (const it of itens) {
@@ -67,9 +93,16 @@ export default class VendaController {
 
     const venda = new Venda();
     venda.data = new Date().toISOString().slice(0, 10);
-    venda.valorTotal = Number(total) || 0;
+    venda.valorTotal = totalNum;
+    venda.valorPago = valorPagoNum;
+    venda.valorRestante = Math.max(totalNum - valorPagoNum, 0);
+    venda.parcelado = Boolean(parcelado);
+    venda.qtdParcelas = venda.parcelado ? qtdParcelasNum : 1;
+    venda.valorParcela = venda.parcelado
+      ? Number(valorParcela || (totalNum / qtdParcelasNum).toFixed(2))
+      : 0;
     venda.formaPagto = formaPagto;
-    venda.statusPagto = statusPagto || "pendente";
+    venda.statusPagto = this.#resolverStatusPagamento(totalNum, valorPagoNum, statusPagto);
     venda.observacao = observacao || null;
 
     venda.usuarioResponsavel = new Usuario();
@@ -103,9 +136,9 @@ export default class VendaController {
   async atualizarPagamento(req, res) {
     try {
       const { id } = req.params;
-      const { formaPagto, statusPagto } = req.body;
+      const { formaPagto, statusPagto, valorPago, parcelado, qtdParcelas, valorParcela } = req.body;
 
-      const statusValidos = ["pendente", "pago", "cancelado", "estornado"];
+      const statusValidos = ["pendente", "parcial", "pago", "cancelado", "estornado"];
       const formasValidas = ["dinheiro", "cartao", "pix"];
 
       if (statusPagto && !statusValidos.includes(statusPagto)) {
@@ -114,8 +147,8 @@ export default class VendaController {
       if (formaPagto && !formasValidas.includes(formaPagto)) {
         return res.status(400).json({ msg: `Forma de pagamento inválida. Use: ${formasValidas.join(", ")}` });
       }
-      if (!formaPagto && !statusPagto) {
-        return res.status(400).json({ msg: "Informe ao menos formaPagto ou statusPagto" });
+      if (!formaPagto && !statusPagto && valorPago === undefined && parcelado === undefined && qtdParcelas === undefined && valorParcela === undefined) {
+        return res.status(400).json({ msg: "Informe ao menos formaPagto, statusPagto, valorPago ou dados do parcelamento" });
       }
 
       const venda = await this.#repo.obterPorId(id);
@@ -123,9 +156,31 @@ export default class VendaController {
         return res.status(404).json({ msg: "Venda não encontrada" });
       }
 
+      const totalNum = Number(venda.valorTotal ?? venda.total ?? 0);
+      const valorPagoNum = valorPago === undefined ? Number(venda.valorPago || 0) : Number(valorPago);
+      const parceladoFinal = parcelado === undefined ? Boolean(venda.parcelado) : Boolean(parcelado);
+      const qtdParcelasFinal = qtdParcelas === undefined ? Number(venda.qtdParcelas || 1) : Number(qtdParcelas);
+
+      if (valorPagoNum < 0) {
+        return res.status(400).json({ msg: "Valor pago não pode ser negativo" });
+      }
+      if (valorPagoNum > totalNum) {
+        return res.status(400).json({ msg: "Valor pago não pode ser maior que o total da venda" });
+      }
+      if (parceladoFinal && (!Number.isInteger(qtdParcelasFinal) || qtdParcelasFinal < 2)) {
+        return res.status(400).json({ msg: "Informe ao menos 2 parcelas para venda parcelada" });
+      }
+
       await this.#repo.atualizarPagamento(id, {
         formaPagto: formaPagto || venda.formaPagto,
-        statusPagto: statusPagto || venda.statusPagto,
+        statusPagto: this.#resolverStatusPagamento(totalNum, valorPagoNum, statusPagto),
+        valorPago: valorPagoNum,
+        valorRestante: Math.max(totalNum - valorPagoNum, 0),
+        parcelado: parceladoFinal,
+        qtdParcelas: parceladoFinal ? qtdParcelasFinal : 1,
+        valorParcela: parceladoFinal
+          ? Number(valorParcela || venda.valorParcela || (totalNum / qtdParcelasFinal).toFixed(2))
+          : 0,
       });
 
       return res.status(200).json({ msg: "Pagamento atualizado com sucesso" });
@@ -133,5 +188,12 @@ export default class VendaController {
       console.error(error);
       return res.status(500).json({ msg: "Erro ao atualizar pagamento" });
     }
+  }
+
+  #resolverStatusPagamento(total, valorPago, statusInformado) {
+    if (["cancelado", "estornado"].includes(statusInformado)) return statusInformado;
+    if (valorPago <= 0) return "pendente";
+    if (valorPago >= total) return "pago";
+    return "parcial";
   }
 }

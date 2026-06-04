@@ -276,14 +276,16 @@ export default class AgendaController {
 
         
 
+        const podeVerCliente = req.usuarioLogado?.perfil === "gerente";
+
         slots.push({
           slot: hora,
           bloqueado,
           ocupado,
           status,
-          clienteId: slotOcupado?.cliente_id || null,
-          clienteNome: slotOcupado?.cliente_nome || null,
-          cliente: slotOcupado?.cliente_id
+          clienteId: podeVerCliente ? slotOcupado?.cliente_id || null : null,
+          clienteNome: podeVerCliente ? slotOcupado?.cliente_nome || null : null,
+          cliente: podeVerCliente && slotOcupado?.cliente_id
             ? {
                 id: slotOcupado.cliente_id,
                 nome: slotOcupado.cliente_nome,

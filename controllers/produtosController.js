@@ -14,9 +14,6 @@ export default class ProdutosController {
 
             let lista = await this.#repo.listar();
 
-            if (lista.length == 0)
-                return res.status(404).json({ msg: "Nenhum produto encontrado." });
-
             return res.status(200).json(lista);
 
         } catch (e) {

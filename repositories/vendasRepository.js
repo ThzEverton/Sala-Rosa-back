@@ -39,7 +39,51 @@ export default class VendasRepository {
     );
   }
 
+  async #temColunaVendas(coluna) {
+    const rows = await this.#banco.ExecutaComando(
+      `select 1
+       from information_schema.columns
+       where table_schema = database()
+         and table_name = 'vendas'
+         and column_name = ?
+       limit 1`,
+      [coluna]
+    );
+    return rows.length > 0;
+  }
+
+  async #garantirCamposPagamento() {
+    if (!(await this.#temColunaVendas("valor_pago"))) {
+      await this.#banco.ExecutaComando(
+        `alter table vendas
+         add column valor_pago decimal(10,2) not null default 0.00 after valor_total,
+         add column valor_restante decimal(10,2) not null default 0.00 after valor_pago,
+         add column parcelado tinyint(1) not null default 0 after status_pagto,
+         add column qtd_parcelas int not null default 1 after parcelado,
+         add column valor_parcela decimal(10,2) not null default 0.00 after qtd_parcelas`
+      );
+
+      await this.#banco.ExecutaComando(
+        `update vendas
+         set
+           valor_pago = case when status_pagto = 'pago' then valor_total else 0 end,
+           valor_restante = case when status_pagto = 'pago' then 0 else valor_total end`
+      );
+    }
+
+    await this.#banco.ExecutaComando(
+      `alter table vendas
+       modify status_pagto enum('pendente', 'parcial', 'pago', 'cancelado', 'estornado') not null default 'pendente'`
+    );
+
+    await this.#banco.ExecutaComando(
+      `alter table financeiro_lancamentos
+       modify status enum('pendente', 'parcial', 'pago', 'cancelado', 'estornado') not null default 'pendente'`
+    );
+  }
+
   async listar() {
+    await this.#garantirCamposPagamento();
     const temClienteId = await this.#temColunaClienteId();
     const camposCliente = temClienteId
       ? `v.cliente_id, c.nome as cliente_nome, c.email as cliente_email, c.telefone as cliente_telefone,`
@@ -56,8 +100,13 @@ export default class VendasRepository {
         ${camposCliente}
         v.data,
         v.valor_total,
+        v.valor_pago,
+        v.valor_restante,
         v.forma_pagto,
         v.status_pagto,
+        v.parcelado,
+        v.qtd_parcelas,
+        v.valor_parcela,
         v.observacao,
         v.created_at,
         u.nome as usuario_nome
@@ -106,6 +155,7 @@ export default class VendasRepository {
   }
 
   async obterPorId(id) {
+    await this.#garantirCamposPagamento();
     const temClienteId = await this.#temColunaClienteId();
     const camposCliente = temClienteId
       ? `v.cliente_id, c.nome as cliente_nome, c.email as cliente_email, c.telefone as cliente_telefone,`
@@ -147,6 +197,8 @@ export default class VendasRepository {
   }
 
  async criarVenda(venda, itensPayload = []) {
+  await this.#garantirCamposPagamento();
+
   if (!itensPayload || itensPayload.length === 0)
     throw new Error("Venda precisa de ao menos 1 item");
 
@@ -169,16 +221,21 @@ export default class VendasRepository {
 
     const vendaResult = await tx.query(
       `insert into vendas
-        (usuario_responsavel_id, atendimento_id${colunasCliente}, data, valor_total, forma_pagto, status_pagto, observacao)
-       values (?, ?${valoresCliente}, ?, ?, ?, ?, ?)`,
+        (usuario_responsavel_id, atendimento_id${colunasCliente}, data, valor_total, valor_pago, valor_restante, forma_pagto, status_pagto, parcelado, qtd_parcelas, valor_parcela, observacao)
+       values (?, ?${valoresCliente}, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         venda.usuarioResponsavel.id,
         venda.atendimento?.id || null,
         ...paramsCliente,
         venda.data,
         venda.valorTotal,
+        venda.valorPago,
+        venda.valorRestante,
         venda.formaPagto || null,
         venda.statusPagto || "pendente",
+        venda.parcelado ? 1 : 0,
+        venda.qtdParcelas || 1,
+        venda.valorParcela || 0,
         venda.observacao || null,
       ]
     );
@@ -272,12 +329,40 @@ export default class VendasRepository {
   }
 
 
-  async atualizarPagamento(vendaId, { formaPagto, statusPagto }) {
+  async atualizarPagamento(vendaId, {
+    formaPagto,
+    statusPagto,
+    valorPago,
+    valorRestante,
+    parcelado,
+    qtdParcelas,
+    valorParcela,
+  }) {
+    await this.#garantirCamposPagamento();
+
     const tx = await this.#banco.getConnectionTx();
     try {
       await tx.query(
-        `update vendas set forma_pagto = ?, status_pagto = ? where id = ?`,
-        [formaPagto, statusPagto, vendaId]
+        `update vendas
+         set
+           forma_pagto = ?,
+           status_pagto = ?,
+           valor_pago = ?,
+           valor_restante = ?,
+           parcelado = ?,
+           qtd_parcelas = ?,
+           valor_parcela = ?
+         where id = ?`,
+        [
+          formaPagto,
+          statusPagto,
+          valorPago,
+          valorRestante,
+          parcelado ? 1 : 0,
+          qtdParcelas || 1,
+          valorParcela || 0,
+          vendaId,
+        ]
       );
       await tx.query(
         `update financeiro_lancamentos set forma_pagto = ?, status = ? where venda_id = ?`,
@@ -313,9 +398,14 @@ export default class VendasRepository {
 
     v.data = row["data"];
     v.valorTotal = Number(row["valor_total"]);
+    v.valorPago = Number(row["valor_pago"] || 0);
+    v.valorRestante = Number(row["valor_restante"] ?? Math.max(Number(row["valor_total"] || 0) - Number(row["valor_pago"] || 0), 0));
     v.total = Number(row["valor_total"]);
     v.formaPagto = row["forma_pagto"];
     v.statusPagto = row["status_pagto"];
+    v.parcelado = row["parcelado"] == 1;
+    v.qtdParcelas = Number(row["qtd_parcelas"] || 1);
+    v.valorParcela = Number(row["valor_parcela"] || 0);
     v.observacao = row["observacao"];
     v.createdAt = row["created_at"];
     v.itens = [];
