@@ -25,45 +25,107 @@ export default class EmailCampanhasController {
     return String(valor || "").trim();
   }
 
+  #formatarMensagemHtml(mensagem) {
+    const linhas = String(mensagem || "")
+      .split(/\r?\n/)
+      .map((linha) => this.#escaparHtml(linha.trim()))
+      .filter(Boolean);
+
+    if (!linhas.length) return "";
+
+    return linhas
+      .map((linha) => `<p style="margin:0 0 14px; font-size:15px; line-height:1.7; color:#2f2a2d;">${linha}</p>`)
+      .join("");
+  }
+
   #montarHtmlCampanha(campanha, cliente, imagemCid = null) {
     const nome = this.#escaparHtml(cliente?.nome || "cliente");
     const assunto = this.#escaparHtml(campanha.assunto);
-    const mensagem = this.#escaparHtml(
+    const mensagem = this.#formatarMensagemHtml(
       String(campanha.mensagem || "").replace(/\{\{\s*nome\s*\}\}/gi, cliente?.nome || "")
-    ).replace(/\r?\n/g, "<br>");
+    );
     const imagemUrl = imagemCid ? `cid:${imagemCid}` : campanha.imagemUrl;
+    const frontendUrl = this.#escaparHtml(
+      (process.env.FRONTEND_URL || process.env.APP_URL || "https://melissamartelli.com.br").replace(/\/$/, "")
+    );
     const imagemHtml = imagemUrl
       ? `
         <tr>
-          <td style="padding: 0 0 22px;">
-            <img src="${this.#escaparHtml(imagemUrl)}" alt="" style="display: block; width: 100%; max-width: 560px; border-radius: 10px;">
+          <td style="padding: 0 24px 22px;">
+            <img src="${this.#escaparHtml(imagemUrl)}" alt="" style="display:block; width:100%; max-width:552px; border-radius:14px; border:1px solid #f1d7df;">
           </td>
         </tr>
       `
       : "";
 
     return `
-      <div style="margin:0; padding:0; background:#f6f3f5;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6f3f5; padding:24px 12px;">
+      <div style="margin:0; padding:0; background:#f8f4f6;">
+        <span style="display:none!important; visibility:hidden; opacity:0; color:transparent; height:0; width:0; overflow:hidden;">
+          Uma mensagem especial da Sala Rosa para você.
+        </span>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8f4f6; padding:28px 12px;">
           <tr>
             <td align="center">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px; background:#ffffff; border-radius:12px; overflow:hidden; font-family:Arial,sans-serif; color:#2b2b2b;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px; background:#ffffff; border-radius:16px; overflow:hidden; font-family:Arial,Helvetica,sans-serif; color:#2b2b2b; border:1px solid #efd5de; box-shadow:0 14px 36px rgba(94,45,64,.10);">
                 <tr>
-                  <td style="padding:28px 28px 12px;">
-                    <div style="font-size:13px; color:#b25b7f; font-weight:bold; letter-spacing:.2px;">Sala Rosa</div>
-                    <h1 style="margin:8px 0 0; font-size:24px; line-height:1.25; color:#2b2b2b;">${assunto}</h1>
+                  <td align="center" style="background:#bd4668; background:linear-gradient(180deg,#cf5d7c 0%,#b83f62 100%); padding:28px 24px 24px;">
+                    <div style="font-size:22px; line-height:1.2; color:#ffffff; font-weight:700; letter-spacing:.2px;">Sala Rosa</div>
+                    <div style="margin-top:6px; font-size:11px; line-height:1.4; color:#ffe9ef; font-weight:700; letter-spacing:.7px; text-transform:uppercase;">Espaço de beleza e bem-estar</div>
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:0 28px;">
-                    <p style="margin:0 0 18px; font-size:16px; line-height:1.5;">Olá, ${nome}.</p>
+                  <td align="center" style="padding:28px 28px 18px; border-bottom:1px solid #f0dbe2;">
+                    <p style="margin:0 0 8px; font-size:12px; line-height:1.5; color:#8a6473; font-weight:700;">Uma mensagem especial para você</p>
+                    <h1 style="margin:0; font-size:24px; line-height:1.25; color:#171214;">${assunto}</h1>
+                    <p style="margin:12px 0 0; font-size:15px; line-height:1.6; color:#6b5860;">Olá, <strong style="color:#171214;">${nome}</strong>.</p>
                   </td>
                 </tr>
                 ${imagemHtml}
                 <tr>
-                  <td style="padding:0 28px 28px;">
-                    <div style="font-size:16px; line-height:1.6;">${mensagem}</div>
-                    <p style="margin:24px 0 0; font-size:12px; color:#777;">Sala Rosa</p>
+                  <td style="padding:26px 32px 8px;">
+                    ${mensagem}
+                    <div style="margin:22px 0 18px; background:#fff1f5; border-left:4px solid #cf4d72; border-radius:10px; padding:15px 16px;">
+                      <p style="margin:0; font-size:13px; line-height:1.55; color:#9f3154; font-weight:700;">Conteúdo preparado com carinho para deixar seu cuidado ainda mais especial.</p>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 32px 18px;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td width="33.33%" style="padding:0 5px 10px;">
+                          <div style="border:1px solid #eed6df; border-radius:10px; padding:14px 8px; text-align:center;">
+                            <div style="font-size:20px; color:#c64469; line-height:1;">&#10022;</div>
+                            <div style="margin-top:8px; font-size:12px; line-height:1.25; color:#1f171b; font-weight:700;">Beleza</div>
+                            <div style="font-size:11px; line-height:1.3; color:#806875;">Cabelo e cuidado</div>
+                          </div>
+                        </td>
+                        <td width="33.33%" style="padding:0 5px 10px;">
+                          <div style="border:1px solid #eed6df; border-radius:10px; padding:14px 8px; text-align:center;">
+                            <div style="font-size:20px; color:#c64469; line-height:1;">&#9825;</div>
+                            <div style="margin-top:8px; font-size:12px; line-height:1.25; color:#1f171b; font-weight:700;">Estética</div>
+                            <div style="font-size:11px; line-height:1.3; color:#806875;">Tratamentos faciais</div>
+                          </div>
+                        </td>
+                        <td width="33.33%" style="padding:0 5px 10px;">
+                          <div style="border:1px solid #eed6df; border-radius:10px; padding:14px 8px; text-align:center;">
+                            <div style="font-size:20px; color:#c64469; line-height:1;">&#10048;</div>
+                            <div style="margin-top:8px; font-size:12px; line-height:1.25; color:#1f171b; font-weight:700;">Relaxamento</div>
+                            <div style="font-size:11px; line-height:1.3; color:#806875;">Massagem e spa</div>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:0 32px 28px;">
+                    <a href="${frontendUrl}/login" style="display:inline-block; background:#bd4668; color:#ffffff; text-decoration:none; border-radius:999px; padding:13px 28px; font-size:14px; line-height:1; font-weight:700;">Agendar meu horário &rarr;</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:18px 32px 24px; border-top:1px solid #f0dbe2;">
+                    <p style="margin:0; font-size:12px; line-height:1.6; color:#7b6870;"><strong style="color:#171214;">Sala Rosa</strong><br>Espaço de beleza e bem-estar</p>
                   </td>
                 </tr>
               </table>
