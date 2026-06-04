@@ -72,7 +72,28 @@ export default class EmailCampanhasController {
     `;
   }
 
-  #montarHtmlCampanha(campanha, cliente, imagemCid = null) {
+  #montarBlocoHistorico(destaque) {
+    if (!destaque?.nome) return "";
+
+    const nome = this.#escaparHtml(destaque.nome);
+    const texto = destaque.tipo === "produto"
+      ? `Percebemos que este produto já apareceu no seu histórico. Por isso, separamos essa campanha pensando em algo que você já conhece.`
+      : `Percebemos que esse cuidado já apareceu no seu histórico. Por isso, separamos essa campanha pensando em algo que combina com seus atendimentos anteriores.`;
+
+    return `
+      <tr>
+        <td style="padding:26px 42px 24px; border-bottom:1px dashed #ead3dc;">
+          <div style="background:#fbf7f9; border:1px solid #ead3dc; border-radius:14px; padding:18px 20px;">
+            <p style="margin:0 0 6px; font-size:13px; line-height:1.4; color:#9f3154; font-weight:700;">Selecionamos para você</p>
+            <p style="margin:0 0 8px; font-size:18px; line-height:1.35; color:#171214; font-weight:700;">${nome}</p>
+            <p style="margin:0; font-size:14px; line-height:1.65; color:#6b5860;">${texto}</p>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  #montarHtmlCampanha(campanha, cliente, imagemCid = null, destaqueHistorico = null) {
     const nome = this.#escaparHtml(cliente?.nome || "cliente");
     const assunto = this.#escaparHtml(campanha.assunto);
     const mensagem = this.#formatarMensagemHtml(
@@ -83,6 +104,9 @@ export default class EmailCampanhasController {
       (process.env.FRONTEND_URL || process.env.APP_URL || "https://melissamartelli.com.br").replace(/\/$/, "")
     );
     const servicosHtml = campanha.incluirServicos ? this.#montarBlocoServicos() : "";
+    const historicoHtml = campanha.personalizarHistorico
+      ? this.#montarBlocoHistorico(destaqueHistorico)
+      : "";
     const imagemHtml = imagemUrl
       ? `
         <tr>
@@ -129,6 +153,7 @@ export default class EmailCampanhasController {
                     </div>
                   </td>
                 </tr>
+                ${historicoHtml}
                 ${servicosHtml}
                 <tr>
                   <td align="center" style="padding:30px 42px 34px; border-bottom:1px dashed #ead3dc;">
@@ -174,6 +199,7 @@ export default class EmailCampanhasController {
     const mensagem = this.#normalizarTexto(body.mensagem || body.texto);
     const imagemUrl = this.#normalizarTexto(body.imagemUrl || body.imagem_url) || null;
     const incluirServicos = Boolean(body.incluirServicos || body.incluir_servicos);
+    const personalizarHistorico = Boolean(body.personalizarHistorico || body.personalizar_historico);
 
     if (!titulo || titulo.length < 2) {
       return { erro: "Título inválido." };
@@ -185,7 +211,7 @@ export default class EmailCampanhasController {
       return { erro: "Mensagem inválida." };
     }
 
-    return { titulo, assunto, mensagem, imagemUrl, incluirServicos };
+    return { titulo, assunto, mensagem, imagemUrl, incluirServicos, personalizarHistorico };
   }
 
   async listar(req, res) {
@@ -276,7 +302,10 @@ export default class EmailCampanhasController {
         }
 
         try {
-          const html = this.#montarHtmlCampanha(campanha, cliente, inline.cid);
+          const destaqueHistorico = campanha.personalizarHistorico
+            ? await this.#repo.obterDestaqueHistoricoCliente(cliente.id)
+            : null;
+          const html = this.#montarHtmlCampanha(campanha, cliente, inline.cid, destaqueHistorico);
           await enviarEmail(cliente.email, campanha.assunto, html, {
             attachments: inline.attachments,
           });
@@ -286,6 +315,7 @@ export default class EmailCampanhasController {
             nome: cliente.nome,
             email: cliente.email,
             status: "enviado",
+            personalizado: Boolean(destaqueHistorico),
           });
         } catch (err) {
           resultados.push({
@@ -302,6 +332,7 @@ export default class EmailCampanhasController {
 
       const enviados = resultados.filter((r) => r.status === "enviado").length;
       const erros = resultados.filter((r) => r.status === "erro").length;
+      const personalizados = resultados.filter((r) => r.personalizado).length;
 
       return res.status(200).json({
         msg: "Campanha processada.",
@@ -309,6 +340,7 @@ export default class EmailCampanhasController {
         total: resultados.length,
         enviados,
         erros,
+        personalizados,
         resultados,
       });
     } catch (err) {

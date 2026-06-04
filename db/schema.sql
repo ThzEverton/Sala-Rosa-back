@@ -250,6 +250,7 @@ CREATE TABLE email_campanhas (
   mensagem TEXT NOT NULL,
   imagem_url VARCHAR(500) NULL,
   incluir_servicos TINYINT(1) NOT NULL DEFAULT 0,
+  personalizar_historico TINYINT(1) NOT NULL DEFAULT 0,
   criado_por_user_id INT NULL,
   total_destinatarios INT NOT NULL DEFAULT 0,
   total_enviados INT NOT NULL DEFAULT 0,

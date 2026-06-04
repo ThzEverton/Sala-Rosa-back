@@ -16,6 +16,7 @@ export default class EmailCampanhasRepository {
         mensagem text not null,
         imagem_url varchar(500) null,
         incluir_servicos tinyint(1) not null default 0,
+        personalizar_historico tinyint(1) not null default 0,
         criado_por_user_id int null,
         total_destinatarios int not null default 0,
         total_enviados int not null default 0,
@@ -34,17 +35,25 @@ export default class EmailCampanhasRepository {
     `);
 
     const colunas = await this.#banco.ExecutaComando(`
-      select column_name
+      select column_name as columnName
       from information_schema.columns
       where table_schema = database()
         and table_name = 'email_campanhas'
-        and column_name = 'incluir_servicos'
+        and column_name in ('incluir_servicos', 'personalizar_historico')
     `);
+    const colunasExistentes = new Set(colunas.map((c) => c.columnName));
 
-    if (!colunas.length) {
+    if (!colunasExistentes.has("incluir_servicos")) {
       await this.#banco.ExecutaComandoNonQuery(`
         alter table email_campanhas
         add column incluir_servicos tinyint(1) not null default 0 after imagem_url
+      `);
+    }
+
+    if (!colunasExistentes.has("personalizar_historico")) {
+      await this.#banco.ExecutaComandoNonQuery(`
+        alter table email_campanhas
+        add column personalizar_historico tinyint(1) not null default 0 after incluir_servicos
       `);
     }
 
@@ -107,17 +116,80 @@ export default class EmailCampanhasRepository {
     return rows.length ? this.#mapCampanha(rows[0]) : null;
   }
 
-  async criarCampanha({ titulo, assunto, mensagem, imagemUrl, incluirServicos, criadoPorUserId }) {
+  async criarCampanha({ titulo, assunto, mensagem, imagemUrl, incluirServicos, personalizarHistorico, criadoPorUserId }) {
     await this.garantirTabelas();
 
     return await this.#banco.ExecutaComandoLastInserted(
       `
       insert into email_campanhas
-        (titulo, assunto, mensagem, imagem_url, incluir_servicos, criado_por_user_id)
-      values (?, ?, ?, ?, ?, ?)
+        (titulo, assunto, mensagem, imagem_url, incluir_servicos, personalizar_historico, criado_por_user_id)
+      values (?, ?, ?, ?, ?, ?, ?)
       `,
-      [titulo, assunto, mensagem, imagemUrl || null, incluirServicos ? 1 : 0, criadoPorUserId || null]
+      [titulo, assunto, mensagem, imagemUrl || null, incluirServicos ? 1 : 0, personalizarHistorico ? 1 : 0, criadoPorUserId || null]
     );
+  }
+
+  async obterDestaqueHistoricoCliente(clienteId) {
+    const id = Number(clienteId);
+    if (!Number.isInteger(id) || id <= 0) return null;
+
+    const produtos = await this.#banco.ExecutaComando(
+      `
+      select
+        p.nome,
+        sum(vi.quantidade) as total,
+        max(v.data) as ultima_data
+      from vendas v
+      join venda_itens vi on vi.venda_id = v.id and vi.tipo = 'produto'
+      join produtos p on p.id = vi.produto_id
+      where v.cliente_id = ?
+        and v.status_pagto not in ('cancelado', 'estornado')
+        and p.ativo = 1
+      group by p.id, p.nome
+      having total >= 2 and ultima_data >= date_sub(curdate(), interval 365 day)
+      order by total desc, ultima_data desc
+      limit 1
+      `,
+      [id]
+    );
+
+    if (produtos.length) {
+      return {
+        tipo: "produto",
+        nome: produtos[0].nome,
+        total: Number(produtos[0].total || 0),
+      };
+    }
+
+    const servicos = await this.#banco.ExecutaComando(
+      `
+      select
+        s.nome,
+        count(*) as total,
+        max(a.data) as ultima_data
+      from agendamento_participantes ap
+      join agendamentos a on a.id = ap.agendamento_id
+      join servicos s on s.id = a.servico_id
+      where ap.user_id = ?
+        and a.status in ('confirmado', 'concluido', 'aprovado')
+        and s.ativo = 1
+      group by s.id, s.nome
+      having total >= 2 and ultima_data >= date_sub(curdate(), interval 365 day)
+      order by total desc, ultima_data desc
+      limit 1
+      `,
+      [id]
+    );
+
+    if (servicos.length) {
+      return {
+        tipo: "servico",
+        nome: servicos[0].nome,
+        total: Number(servicos[0].total || 0),
+      };
+    }
+
+    return null;
   }
 
   async listarClientesComEmail({ clienteIds = [], todosClientes = false } = {}) {
@@ -209,6 +281,7 @@ export default class EmailCampanhasRepository {
       mensagem: row.mensagem,
       imagemUrl: row.imagem_url,
       incluirServicos: Boolean(row.incluir_servicos),
+      personalizarHistorico: Boolean(row.personalizar_historico),
       criadoPorUserId: row.criado_por_user_id,
       criadoPorNome: row.criado_por_nome || null,
       totalDestinatarios: Number(row.total_destinatarios || 0),
