@@ -1,77 +1,65 @@
-# Sala Rosa – Backend
+# Sala Rosa — Backend
 
-API para gerenciamento de agendamentos, agenda, vendas e financeiro.
+API do sistema **Sala Rosa**, responsável pelas regras de negócio de agenda, agendamentos, vendas, financeiro e autenticação.
 
-Foco em regra de negócio (agenda por horário) e organização em camadas.
-
----
+Frontend relacionado: [`Front-end-`](https://github.com/ThzEverton/Front-end-)
 
 ## Stack
 
 - Node.js
-- Express
+- Express 5
 - MySQL
 - JWT
 - Swagger
+- bcrypt
+- whatsapp-web.js
 
----
+## Arquitetura
 
+```text
+Routes
+  ↓
+Controllers
+  ↓
+Services
+  ↓
+Repositories
+  ↓
+MySQL
+```
 
-## Padrão
+Entidades e middlewares complementam as camadas de domínio, validação e segurança.
 
-- Controller → entrada da requisição  
-- Repository → acesso ao banco  
-- Entity → estrutura de dados  
-- Middleware → validações  
+## Regras de agendamento
 
----
+O domínio usa controle por **slots de tempo** para evitar conflitos de agenda.
 
-## Regras de Negócio
+- Agendamento `individual`: confirmação direta.
+- Agendamento `turma`: depende de aprovação.
+- Horários configurados, exceções e bloqueios são validados.
+- Slots podem estar disponíveis, ocupados ou bloqueados.
+- Cancelamentos atualizam o status e liberam os slots.
 
-### Agendamento
+Durações atualmente consideradas:
 
-- Tipos:
-  - `individual` → confirmado direto
-  - `turma` → depende de aprovação
-
-- Usa controle por **slots de tempo**
-- Não permite conflito de horário
-- Valida:
-  - horários configurados
-  - exceções
-  - bloqueios
-
-### Duração
-
-- Individual → 1h  
-- Turma → 2h  
-
-### Slots
-
-- Baseados na configuração da agenda
-- Status:
-  - disponível
-  - ocupado
-  - bloqueado
-
-### Cancelamento
-
-- Atualiza status
-- Libera os slots
-
----
+- individual: 1 hora
+- turma: 2 horas
 
 ## Autenticação
 
-- JWT
-- Header: `Authorization: Bearer`
-- ou cookie
+A API utiliza JWT, recebido pelo header `Authorization: Bearer <token>` ou por cookie conforme o fluxo da aplicação.
 
+## Documentação da API
 
----
+O projeto possui geração e interface Swagger por meio de `swagger-autogen` e `swagger-ui-express`.
 
-## Execução
+## Executando localmente
+
+1. Configure as variáveis de ambiente e a conexão MySQL.
+2. Instale as dependências.
+3. Inicie a aplicação.
 
 ```bash
 npm install
-npm run dev
+npm start
+```
