@@ -1,5 +1,5 @@
 {
-  "name": "backend",
+  "name": "sala-rosa-backend",
   "version": "1.0.0",
   "type": "module",
   "main": "server.js",
@@ -23,5 +23,6 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
-  }
+  },
+  "private": true
 }
